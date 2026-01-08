@@ -36,7 +36,7 @@ jobs:
         run: npm run spell -- --no-progress
 
       - name: Type check
-        run: npm types
+        run: npm run types
 
       - name: Unit tests
         run: npm test
