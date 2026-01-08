@@ -1,6 +1,27 @@
 {
 	"name": "vellum",
 	"version": "0.0.1",
+	"description": "Structural state management library for Svelte 5",
+	"repository": {
+		"type": "git",
+		"url": "git@github.com:jwerre/vellum.git"
+	},
+	"keywords": [
+		"svelte",
+		"svelte5",
+		"runes",
+		"vellum",
+		"model",
+		"collection",
+		"state-management",
+		"typescript",
+		"rest",
+		"active-record",
+		"orm",
+		"reactive",
+		"data-modeling"
+	],
+	"author": "Jonah Werre <jonahwerre@gmail.com>",
 	"scripts": {
 		"build": "vite build && npm run prepack",
 		"types": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -65,8 +86,5 @@
 		"typescript-eslint": "^8.48.1",
 		"vite": "^7.2.6",
 		"vitest": "^4.0.15"
-	},
-	"keywords": [
-		"svelte"
-	]
+	}
 }
