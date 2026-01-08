@@ -1,0 +1,72 @@
+{
+	"name": "vellum",
+	"version": "0.0.1",
+	"scripts": {
+		"build": "vite build && npm run prepack",
+		"types": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"types:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"check": "npm audit --audit-level=moderate --omit=dev && npm run format && npm run lint && npm run spell && npm run types && npm test && npm run build && npm run release:dry",
+		"dev": "vite dev",
+		"format": "prettier --check .",
+		"format:write": "prettier --write .",
+		"lint": "prettier --check . && eslint .",
+		"prepack": "svelte-kit sync && svelte-package && publint",
+		"prepare": "svelte-kit sync || echo ''",
+		"preview": "vite preview",
+		"release": "semantic-release",
+		"release:dry": "semantic-release --dry-run",
+		"spell": "cspell .",
+		"test": "vitest --run",
+		"test:watch": "vitest"
+	},
+	"files": [
+		"dist",
+		"!dist/**/*.test.*",
+		"!dist/**/*.spec.*"
+	],
+	"sideEffects": false,
+	"svelte": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"svelte": "./dist/index.js"
+		}
+	},
+	"peerDependencies": {
+		"svelte": "^5.0.0"
+	},
+	"devDependencies": {
+		"@eslint/compat": "^1.4.0",
+		"@eslint/js": "^9.39.1",
+		"@semantic-release/changelog": "^6.0.3",
+		"@semantic-release/commit-analyzer": "^13.0.1",
+		"@semantic-release/github": "^12.0.2",
+		"@semantic-release/npm": "^13.1.3",
+		"@semantic-release/release-notes-generator": "^14.1.0",
+		"@sveltejs/adapter-auto": "^7.0.0",
+		"@sveltejs/kit": "^2.49.1",
+		"@sveltejs/package": "^2.5.7",
+		"@sveltejs/vite-plugin-svelte": "^6.2.1",
+		"@types/node": "^24",
+		"cspell": "^9.4.0",
+		"eslint": "^9.39.1",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-svelte": "^3.13.1",
+		"globals": "^16.5.0",
+		"prettier": "^3.7.4",
+		"prettier-plugin-svelte": "^3.4.0",
+		"publint": "^0.3.15",
+		"semantic-release": "^25.0.2",
+		"svelte": "^5.45.6",
+		"svelte-check": "^4.3.4",
+		"typescript": "^5.9.3",
+		"typescript-eslint": "^8.48.1",
+		"vite": "^7.2.6",
+		"vitest": "^4.0.15"
+	},
+	"keywords": [
+		"svelte"
+	]
+}

@@ -1,0 +1,51 @@
+name: Publish models
+
+on: [push]
+
+# env:
+#   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 24
+
+      - name: Install packages
+        run: npm ci
+
+      - name: Security audit
+        run: npm audit --audit-level=moderate --omit=dev
+
+      - name: Format check
+        run: npm run format
+
+      - name: Lint check
+        run: npm run lint
+
+      - name: Spell check
+        run: npm run spell -- --no-progress
+
+      - name: Type check
+        run: npm type
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build library
+        run: npm run build
+
+      - name: Release
+        run: npm run release:dry
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

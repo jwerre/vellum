@@ -7,8 +7,8 @@ export interface VellumConfig {
 export const vellumConfig = $state<VellumConfig>({
 	baseUrl: '',
 	headers: {
-		'Content-Type': 'application/json',
-	},
+		'Content-Type': 'application/json'
+	}
 });
 
 /**

@@ -1,0 +1,9 @@
+{
+	"language": "en",
+	"words": ["jwerre", "werre"],
+	"ignoreWords": [],
+	"ignoreRegExpList": [],
+	"flagWords": [],
+	"useGitignore": true,
+	"ignorePaths": ["cspell.json", "node_modules/**", "package-lock.json"]
+}
