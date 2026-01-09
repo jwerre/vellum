@@ -2,23 +2,28 @@ name: Publish models
 
 on: [push]
 
-# env:
-#   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
 jobs:
   publish:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # Needed to push tags and create releases
+      issues: write # Needed to post comments on issues/PRs
+      pull-requests: write
 
     concurrency:
       group: ${{ github.ref }}
       cancel-in-progress: true
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # semantic-release needs to see your entire git history and all existing tags to determine the next version number.
 
       - uses: actions/setup-node@v3
         with:
-          node-version: 24
+          node-version: 22
+          cache: 'npm' # Speeds up "Install packages" step
 
       - name: Install packages
         run: npm ci
