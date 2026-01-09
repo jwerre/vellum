@@ -10,6 +10,7 @@ jobs:
       contents: write # Needed to push tags and create releases
       issues: write # Needed to post comments on issues/PRs
       pull-requests: write
+      id-token: write # NPM's Provenance and OIDC features
 
     concurrency:
       group: ${{ github.ref }}
