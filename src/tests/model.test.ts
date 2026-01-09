@@ -8,7 +8,7 @@ interface TestSchema {
 }
 
 class TestModel extends Model<TestSchema> {
-	urlRoot() {
+	endpoint() {
 		return '/test';
 	}
 }
@@ -22,7 +22,7 @@ describe('Vellum Model', () => {
 		global.fetch = fetchMock;
 
 		configureVellum({
-			baseUrl: 'https://api.example.com'
+			origin: 'https://api.example.com'
 		});
 	});
 

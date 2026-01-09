@@ -5,5 +5,5 @@
 	"ignoreRegExpList": [],
 	"flagWords": [],
 	"useGitignore": true,
-	"ignorePaths": ["cspell.json", "node_modules/**", "package-lock.json"]
+	"ignorePaths": ["cspell.json", "node_modules/**", "package-lock.json", "static/users.json"]
 }

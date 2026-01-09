@@ -4,21 +4,21 @@ import { vellumConfig, configureVellum } from '../lib/index.js';
 describe('Vellum Configuration', () => {
 	beforeEach(() => {
 		// Reset global state before each test
-		vellumConfig.baseUrl = '';
+		vellumConfig.origin = '';
 		vellumConfig.headers = { 'Content-Type': 'application/json' };
 	});
 
 	it('should initialize with default values', () => {
-		expect(vellumConfig.baseUrl).toBe('');
+		expect(vellumConfig.origin).toBe('');
 		expect(vellumConfig.headers).toEqual({
 			'Content-Type': 'application/json'
 		});
 	});
 
-	it('should update the baseUrl via configureVellum', () => {
-		const baseUrl = 'https://api.example.com';
-		configureVellum({ baseUrl });
-		expect(vellumConfig.baseUrl).toBe(baseUrl);
+	it('should update the origin via configureVellum', () => {
+		const origin = 'https://api.example.com';
+		configureVellum({ origin });
+		expect(vellumConfig.origin).toBe(origin);
 	});
 
 	it('should merge headers rather than overwriting them', () => {
@@ -42,7 +42,7 @@ describe('Vellum Configuration', () => {
 
 	it('should not update properties if they are missing from config object', () => {
 		configureVellum({});
-		expect(vellumConfig.baseUrl).toBe('');
+		expect(vellumConfig.origin).toBe('');
 		expect(Object.keys(vellumConfig.headers)).toHaveLength(1);
 	});
 });

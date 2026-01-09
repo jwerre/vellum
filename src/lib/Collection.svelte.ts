@@ -2,30 +2,128 @@ import { SvelteURLSearchParams } from 'svelte/reactivity';
 import { Model } from './Model.svelte';
 import { vellumConfig } from './config.svelte';
 
+/**
+ * Abstract base class for managing collections of Model instances.
+ *
+ * Provides a reactive collection that can be populated with data, fetched from a server,
+ * and manipulated with type-safe operations. The collection is backed by Svelte's reactivity
+ * system for automatic UI updates.
+ *
+ * @template M - The Model type that extends Model<T>
+ * @template T - The data object type that the models represent
+ *
+ * @example
+ * ```typescript
+ * class UserCollection extends Collection<UserModel, User> {
+ *   model = UserModel;
+ *   endpoint = () => '/api/users';
+ * }
+ *
+ * const users = new UserCollection();
+ * await users.fetch(); // Loads users from API
+ * users.add({ name: 'John', email: 'john@example.com' }); // Adds new user
+ * ```
+ */
 export abstract class Collection<M extends Model<T>, T extends object> {
+	/** Reactive array of model instances in the collection */
 	items = $state<M[]>([]);
 
-	abstract model: new (data: Partial<T>) => M;
-	abstract url(): string;
+	/** The Model class constructor used to create new instances */
+	abstract model: { new (data: Partial<T>): M };
 
+	/** Returns the API endpoint URL for this collection */
+	abstract endpoint(): string;
+
+	/**
+	 * Creates a new Collection instance.
+	 *
+	 * @param models - Optional array of data objects to initialize the collection with
+	 *
+	 * @example
+	 * ```typescript
+	 * // Create empty collection
+	 * const collection = new UserCollection();
+	 *
+	 * // Create collection with initial data
+	 * const collection = new UserCollection([
+	 *   { id: 1, name: 'John' },
+	 *   { id: 2, name: 'Jane' }
+	 * ]);
+	 * ```
+	 */
 	constructor(models: T[] = []) {
 		if (models.length > 0) {
 			this.reset(models);
 		}
 	}
 
+	/** Gets the number of items in the collection */
 	get length(): number {
 		return this.items.length;
 	}
 
+	/**
+	 * Adds a new item to the collection.
+	 *
+	 * @param data - Either raw data of type T or an existing model instance of type M
+	 * @returns The model instance that was added to the collection
+	 *
+	 * @example
+	 * ```typescript
+	 * // Add raw data
+	 * const user = collection.add({ name: 'John', email: 'john@example.com' });
+	 *
+	 * // Add existing model instance
+	 * const existingUser = new UserModel({ name: 'Jane' });
+	 * collection.add(existingUser);
+	 * ```
+	 */
 	add(data: T | M): M {
 		const instance = data instanceof Model ? (data as M) : new this.model(data as Partial<T>);
 		this.items.push(instance);
 		return instance;
 	}
 
+	/**
+	 * Resets the collection with new data, replacing all existing items.
+	 *
+	 * @param data - An array of raw data objects to populate the collection with
+	 *
+	 * @example
+	 * ```typescript
+	 * // Reset collection with new user data
+	 * collection.reset([
+	 *   { id: 1, name: 'John', email: 'john@example.com' },
+	 *   { id: 2, name: 'Jane', email: 'jane@example.com' }
+	 * ]);
+	 * ```
+	 */
 	reset(data: T[]): void {
 		this.items = data.map((attrs) => new this.model(attrs as Partial<T>));
+	}
+
+	/**
+	 * Finds the first item in the collection that matches the given query.
+	 *
+	 * @param query - An object containing key-value pairs to match against items in the collection.
+	 *                Only items that match all specified properties will be returned.
+	 * @returns The first matching item, or undefined if no match is found.
+	 *
+	 * @example
+	 * ```typescript
+	 * // Find a user by ID
+	 * const user = collection.find({ id: 123 });
+	 *
+	 * // Find by multiple properties
+	 * const activeAdmin = collection.find({ role: 'admin', status: 'active' });
+	 * ```
+	 */
+	find(query: Partial<T>): M | undefined {
+		return this.items.find((item) => {
+			return Object.entries(query).every(([key, value]) => {
+				return item.get(key as keyof T) === value;
+			});
+		});
 	}
 
 	/**
@@ -44,11 +142,7 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	 *
 	 * // Fetch with search parameters
 	 * await collection.fetch({
-	 *   search: {
-	 *     name: 'John',
-	 *     active: true,
-	 *     age: 25
-	 *   }
+	 *   search: { limit: 30, after: 29 }
 	 * });
 	 * ```
 	 */
@@ -63,7 +157,7 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 			query = `?${params.toString()}`;
 		}
 
-		const fullUrl = `${vellumConfig.baseUrl}${this.url()}${query}`;
+		const fullUrl = `${vellumConfig.origin}${this.endpoint()}${query}`;
 		const response = await fetch(fullUrl, {
 			headers: { ...vellumConfig.headers }
 		});

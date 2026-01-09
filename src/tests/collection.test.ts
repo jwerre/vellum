@@ -7,7 +7,7 @@ interface UserSchema {
 }
 
 class UserModel extends Model<UserSchema> {
-	urlRoot() {
+	endpoint() {
 		return '/users';
 	}
 }
@@ -16,14 +16,14 @@ class UserCollection extends Collection<UserModel, UserSchema> {
 	get model() {
 		return UserModel;
 	}
-	url() {
+	endpoint() {
 		return '/users';
 	}
 }
 
 describe('Vellum Collection', () => {
 	beforeEach(() => {
-		vellumConfig.baseUrl = 'https://api.example.com';
+		vellumConfig.origin = 'https://api.example.com';
 		vellumConfig.headers = { 'Content-Type': 'application/json' };
 		vi.stubGlobal('fetch', vi.fn());
 	});

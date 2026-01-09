@@ -8,18 +8,18 @@ export abstract class Model<T extends object> {
 	 * for API endpoints related to this model.
 	 *
 	 * This method returns the root URL segment that will be appended to the base API URL
-	 * to form complete endpoints for CRUD operations. For example, if urlRoot() returns
+	 * to form complete endpoints for CRUD operations. For example, if endpoint() returns
 	 * '/users', the full URL for API calls would be `${baseUrl}/users` for collections
 	 * or `${baseUrl}/users/{id}` for individual resources.
 	 *
 	 * @returns {string} The root URL path for this model's API endpoints (e.g., '/users', '/posts')
 	 * @example
 	 * // In a User model subclass:
-	 * urlRoot(): string {
+	 * endpoint(): string {
 	 *   return '/users';
 	 * }
 	 */
-	abstract urlRoot(): string;
+	abstract endpoint(): string;
 
 	constructor(data: Partial<T> = {}) {
 		this.#attributes = { ...data } as T;
@@ -100,12 +100,12 @@ export abstract class Model<T extends object> {
 	 *
 	 * This method handles all HTTP communication between the model and the server,
 	 * automatically constructing the appropriate URL based on the model's ID and
-	 * urlRoot(). It supports all standard REST operations and provides type-safe
+	 * endpoint(). It supports all standard REST operations and provides type-safe
 	 * response handling.
 	 *
 	 * The URL construction follows REST conventions:
-	 * - For new models (no ID): uses collection endpoint `${baseUrl}${urlRoot()}`
-	 * - For existing models (with ID): uses resource endpoint `${baseUrl}${urlRoot()}/${id}`
+	 * - For new models (no ID): uses collection endpoint `${baseUrl}${endpoint()}`
+	 * - For existing models (with ID): uses resource endpoint `${baseUrl}${endpoint()}/${id}`
 	 *
 	 * @template R - The expected response type, defaults to T (the model's attribute type)
 	 * @param {('GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE')} [method='GET'] - The HTTP method to use (defaults to 'GET')
@@ -132,7 +132,7 @@ export abstract class Model<T extends object> {
 		options?: VellumConfig
 	): Promise<R | null> {
 		const id = this.#getId();
-		const fullUrl = `${vellumConfig.baseUrl}${this.urlRoot()}`;
+		const fullUrl = `${vellumConfig.origin}${this.endpoint()}`;
 		const url = id ? `${fullUrl}/${id}` : fullUrl;
 		const fetchOpts = {
 			method,
@@ -142,6 +142,8 @@ export abstract class Model<T extends object> {
 			},
 			body: body ? JSON.stringify(body) : undefined
 		};
+
+		// console.log('Model::sync()', url, fetchOpts);
 
 		const response = await fetch(url, fetchOpts);
 
@@ -231,7 +233,7 @@ export abstract class Model<T extends object> {
 	 * performing any operation.
 	 *
 	 * The DELETE request is sent to the model's specific resource endpoint using the
-	 * pattern `${baseUrl}${urlRoot()}/${id}`. After successful deletion, the model
+	 * pattern `${baseUrl}${endpoint()}/${id}`. After successful deletion, the model
 	 * instance remains in memory but the corresponding server resource is removed.
 	 *
 	 * @returns {Promise<void>} A promise that resolves when the delete operation completes

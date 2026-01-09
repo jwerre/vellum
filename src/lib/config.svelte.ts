@@ -1,11 +1,11 @@
 // config.svelte.ts
 export interface VellumConfig {
-	baseUrl: string;
+	origin: string;
 	headers: Record<string, string>;
 }
 
 export const vellumConfig = $state<VellumConfig>({
-	baseUrl: '',
+	origin: '',
 	headers: {
 		'Content-Type': 'application/json'
 	}
@@ -15,7 +15,7 @@ export const vellumConfig = $state<VellumConfig>({
  * Helper to update global configuration
  */
 export const configureVellum = (config: Partial<VellumConfig>) => {
-	if (config.baseUrl) vellumConfig.baseUrl = config.baseUrl;
+	if (config.origin) vellumConfig.origin = config.origin;
 	if (config.headers) {
 		vellumConfig.headers = { ...vellumConfig.headers, ...config.headers };
 	}
