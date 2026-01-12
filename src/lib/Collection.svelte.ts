@@ -18,7 +18,6 @@ export interface FetchOptions extends Partial<VellumConfig> {
  * @template T - The data object type that the models represent
  *
  * @example
- * ```typescript
  * class UserCollection extends Collection<UserModel, User> {
  *   model = UserModel;
  *   endpoint = () => '/api/users';
@@ -27,7 +26,6 @@ export interface FetchOptions extends Partial<VellumConfig> {
  * const users = new UserCollection();
  * await users.fetch(); // Loads users from API
  * users.add({ name: 'John', email: 'john@example.com' }); // Adds new user
- * ```
  */
 export abstract class Collection<M extends Model<T>, T extends object> {
 	/** Reactive array of model instances in the collection */
@@ -45,7 +43,6 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	 * @param models - Optional array of data objects to initialize the collection with
 	 *
 	 * @example
-	 * ```typescript
 	 * // Create empty collection
 	 * const collection = new UserCollection();
 	 *
@@ -54,7 +51,6 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	 *   { id: 1, name: 'John' },
 	 *   { id: 2, name: 'Jane' }
 	 * ]);
-	 * ```
 	 */
 	constructor(models: T[] = []) {
 		if (models.length > 0) {
@@ -74,14 +70,12 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	 * @returns The model instance that was added to the collection
 	 *
 	 * @example
-	 * ```typescript
 	 * // Add raw data
 	 * const user = collection.add({ name: 'John', email: 'john@example.com' });
 	 *
 	 * // Add existing model instance
 	 * const existingUser = new UserModel({ name: 'Jane' });
 	 * collection.add(existingUser);
-	 * ```
 	 */
 	add(data: T | M): M {
 		const instance = data instanceof Model ? (data as M) : new this.model(data as Partial<T>);
@@ -95,13 +89,11 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	 * @param data - An array of raw data objects to populate the collection with
 	 *
 	 * @example
-	 * ```typescript
 	 * // Reset collection with new user data
 	 * collection.reset([
 	 *   { id: 1, name: 'John', email: 'john@example.com' },
 	 *   { id: 2, name: 'Jane', email: 'jane@example.com' }
 	 * ]);
-	 * ```
 	 */
 	reset(data: T[]): void {
 		this.items = data.map((attrs) => new this.model(attrs as Partial<T>));
@@ -115,13 +107,11 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	 * @returns The first matching item, or undefined if no match is found.
 	 *
 	 * @example
-	 * ```typescript
 	 * // Find a user by ID
 	 * const user = collection.find({ id: 123 });
 	 *
 	 * // Find by multiple properties
 	 * const activeAdmin = collection.find({ role: 'admin', status: 'active' });
-	 * ```
 	 */
 	find(query: Partial<T>): M | undefined {
 		return this.items.find((item) => {
@@ -142,7 +132,6 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	 * @throws {Error} Throws an error if the HTTP request fails or returns a non-ok status
 	 *
 	 * @example
-	 * ```typescript
 	 * // Fetch all items
 	 * await collection.fetch();
 	 *
@@ -150,7 +139,6 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	 * await collection.fetch({
 	 *   search: { limit: 30, after: 29 }
 	 * });
-	 * ```
 	 */
 	async fetch(options: FetchOptions = {}): Promise<void> {
 		let query = '';

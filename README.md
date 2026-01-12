@@ -4,12 +4,12 @@ Vellum is a lightweight, structural state management library for Svelte 5. Vellu
 
 ## Features
 
-- **Rune-Powered**: Built from the ground up for Svelte 5 `$state` and `$derived`.
-- **TypeScript First**: Deeply integrated generics for strict type safety across models and collections.
-- **Class-Based**: Encapsulate data, validation, and API logic in clean JavaScript classes.
-- **Global Config**: Centralized management for base URLs and reactive headers.
-- **RESTful Persistence**: Built-in fetch, save, and destroy methods using node-fetch standards.
-- **Zero Boilerplate**: No more manual $store subscriptions; just access properties directly.
+*   **Rune-Powered**: Built from the ground up for Svelte 5 `$state` and `$derived`.
+*   **TypeScript First**: Deeply integrated generics for strict type safety across models and collections.
+*   **Class-Based**: Encapsulate data, validation, and API logic in clean JavaScript classes.
+*   **Global Config**: Centralized management for base URLs and reactive headers.
+*   **RESTful Persistence**: Built-in fetch, save, and destroy methods using node-fetch standards.
+*   **Zero Boilerplate**: No more manual $store subscriptions; just access properties directly.
 
 ## Why Vellum?
 
@@ -17,9 +17,9 @@ Modern Svelte development often moves away from stores and toward raw $state obj
 
 ### Vellum provides:
 
-- **Consistency**: A standard way to define data entities.
-- **API Integration**: A natural home for fetch, save, and delete logic.
-- **Encapsulation**: Keep your data transformations inside the class, not the UI.
+*   **Consistency**: A standard way to define data entities.
+*   **API Integration**: A natural home for fetch, save, and delete logic.
+*   **Encapsulation**: Keep your data transformations inside the class, not the UI.
 
 ## Installation
 
@@ -50,30 +50,42 @@ Extend the Model class to define your data structure and any derived state or bu
 
 ```ts
 import { Model } from '@jwerre/vellum';
-interface UserSchema {
+interface BookSchema {
 	id: number;
-	firstName: string;
-	lastName: string;
-	role: 'admin' | 'user';
+	author: string;
+	genre: 'literature', 'romance' | 'adventure' | 'fantasy' | 'sci-fi' | 'mystery';
+	summary: string;
+	title: string;
+	year: number;
 }
 
-export class UserModel extends Model<UserSchema> {
+export class Book extends Model<BookSchema> {
+
 	endpoint() {
-		return `/v1/user`;
+		return `/v1/books`;
 	}
 
-	// Computed property using Svelte $derived
-	fullName = $derived(`${this.get('firstName')} ${this.get('lastName')}`);
+	authorFirstName = $derived(`${this.get('author')?.split(' ')[0]}`);
 
-	isAdmin() {
-		return this.get('role') === 'admin';
+	authorLastName = $derived(`${this.get('author')?.split(' ')[1]}`);
+
+	isClassic() {
+		return this.get('year') < 1900;
 	}
 }
 
-const user = new UserModel({ firstName: 'John', lastName: 'Doe', role: 'user' });
-await user.sync();
-console.log(user.id); // 1
-console.log(user.fullName); // John Doe
+const book = new Book({
+	title: 'Crime and Punishment',
+	author: 'Fyodor Dostoevsky',
+	year: 1866,
+	genre: 'literature',
+	summary: 'An exploration of the mental anguish and moral dilemmas...',
+});
+
+await book.sync();
+console.log(book.id); // unique ID created by POST request
+console.log(book.authorFirstName); // Fyodor
+console.log(book.isClassic()); // true
 ```
 
 ### Define a Collection
@@ -82,17 +94,18 @@ Manage groups of models with built-in reactivity.
 
 ```ts
 import { Collection } from '@jwerre/vellum';
-import { UserModel } from './UserModel.svelte.js';
+import { Book } from './Book.svelte.js';
 
-export class UserCollection extends Collection<UserModel, UserSchema> {
-	model = UserModel;
+export class Books extends Collection<Book, BookSchema> {
+
+	model = Book;
 
 	endpoint() {
-		return `/v1/users`;
+		return `/v1/books`;
 	}
 
 	// Derived state for the entire collection
-	adminCount = $derived(this.items.filter((u) => u.isAdmin()).length);
+	classicCount = $derived(this.items.filter((u) => u.isClassic()).length);
 }
 ```
 
@@ -102,272 +115,592 @@ Vellum works seamlessly with Svelte 5 components.
 
 ```svelte
 <script lang="ts">
-	import { UserCollection } from './UserCollection';
+	import { Books } from './Books';
 
-	const users = new UserCollection([{ id: 1, firstName: 'Jane', lastName: 'Doe', role: 'admin' }]);
+	const books = new Books([
+		{  id: 1, title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', year: 1925, genre: 'literature' },
+		{  id: 2, title: 'To Kill a Mockingbird', author: 'Harper Lee', year: 1960, genre: 'literature' }
+		{  id: 3, title: 'The Pillars of the Earth', author: 'Ken Follett', year: 1989, genre: 'literature' }
+	]);
 
-	function addUser() {
-		users.add({ id: 2, firstName: 'John', lastName: 'Smith', role: 'user' });
+	function addBook() {
+		books.add({
+			title: "Moby Dick",
+			author: "Herman Melville",
+			year: 1851,
+			genre: "Adventure",
+			summary: "The obsessive quest of Captain Ahab to seek revenge on the white whale."
+  		});
 	}
 </script>
 
-<h1>Admins: {users.adminCount}</h1>
+<h1>Classic Books: {books.classicCount}</h1>
 
 <ul>
-	{#each users.items as user}
-		{#if user.isAdmin()}
-			<li>{user.fullName} ({user.get('email')})</li>
+	{#each books.items as book}
+		{#if book.isClassic()}
+			<li>{book.get('title')} ({book.get('year')}) - ({book.get('author')})</li>
 		{/if}
 	{/each}
 </ul>
 
-<button onclick={addUser}>Add User</button>
+<button onclick={addBook}>Add Moby Dick</button>
 ```
 
-## API Reference
+## API Documentation
 
-### `Model<T>`
+<!-- Generated by documentation.js. Update this documentation by updating the source code. -->
 
-The `Model` class provides a base class for creating data models with built-in CRUD operations and server synchronization.
+#### Table of Contents
 
-#### Constructor
+*   [vellumConfig](#vellumconfig)
+*   [configureVellum](#configurevellum)
+    *   [Parameters](#parameters)
+    *   [Examples](#examples)
+*   [Model](#model)
+    *   [Parameters](#parameters-1)
+    *   [Examples](#examples-1)
+    *   [idAttribute](#idattribute)
+    *   [get](#get)
+        *   [Parameters](#parameters-2)
+        *   [Examples](#examples-2)
+    *   [has](#has)
+        *   [Parameters](#parameters-3)
+        *   [Examples](#examples-3)
+    *   [unset](#unset)
+        *   [Parameters](#parameters-4)
+        *   [Examples](#examples-4)
+    *   [escape](#escape)
+        *   [Parameters](#parameters-5)
+        *   [Examples](#examples-5)
+    *   [isNew](#isnew)
+    *   [sync](#sync)
+        *   [Parameters](#parameters-6)
+        *   [Examples](#examples-6)
+    *   [fetch](#fetch)
+        *   [Examples](#examples-7)
+    *   [save](#save)
+        *   [Examples](#examples-8)
+    *   [destroy](#destroy)
+        *   [Examples](#examples-9)
+    *   [toJSON](#tojson)
+        *   [Examples](#examples-10)
+*   [Collection](#collection)
+    *   [Parameters](#parameters-7)
+    *   [Examples](#examples-11)
+    *   [items](#items)
+    *   [length](#length)
+    *   [add](#add)
+        *   [Parameters](#parameters-8)
+        *   [Examples](#examples-12)
+    *   [reset](#reset)
+        *   [Parameters](#parameters-9)
+        *   [Examples](#examples-13)
+    *   [find](#find)
+        *   [Parameters](#parameters-10)
+        *   [Examples](#examples-14)
+    *   [fetch](#fetch-1)
+        *   [Parameters](#parameters-11)
+        *   [Examples](#examples-15)
+
+### vellumConfig
+
+Global reactive state for Vellum configuration. Uses Svelte's $state rune to
+create a reactive configuration object that automatically triggers updates when modified.
+
+### configureVellum
+
+Helper function to update global Vellum configuration
+
+Allows partial updates to the global configuration state. Only provided
+properties will be updated, leaving others unchanged. Headers are merged
+with existing headers rather than replaced entirely.
+
+#### Parameters
+
+*   `config` **Partial\<VellumConfig>** Partial configuration object with properties to update
+
+    *   `config.origin` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)?** New origin URL to set
+    *   `config.headers` **Record<[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String), [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)>?** Headers to merge with existing headers
+
+#### Examples
 
 ```javascript
-new Model((data = {}));
+// Set the API origin
+configureVellum({ origin: 'https://api.vellum.ai' });
+
+// Add custom headers
+configureVellum({
+  headers: {
+    'Authorization': 'Bearer token123',
+    'X-Custom-Header': 'value'
+  }
+});
+
+// Update both origin and headers
+configureVellum({
+  origin: 'https://api.vellum.ai',
+  headers: { 'Authorization': 'Bearer token123' }
+});
 ```
 
-Creates a new Model instance with optional initial attributes.
+### Model
 
-**Parameters:**
+Abstract base class for creating model instances that interact with RESTful APIs.
 
-- `data` (Object) - Optional partial object of attributes to initialize the model
+The Model class provides a structured way to manage data objects with full CRUD
+(Create, Read, Update, Delete) capabilities. It includes built-in HTTP synchronization,
+attribute management, and data validation features. This class is designed to work
+with Svelte's reactivity system using the `$state` rune for automatic UI updates.
 
-#### Abstract Properties
+Key features:
 
-Must be implemented by subclasses:
+*   Type-safe attribute access and manipulation
+*   Automatic HTTP synchronization with RESTful APIs
+*   Built-in HTML escaping for XSS prevention
+*   Configurable ID attributes for different database schemas
+*   Reactive attributes that integrate with Svelte's state management
+*   Support for both single attribute and bulk attribute operations
 
-- `endpoint()` - Function that returns the base URL path for API endpoints (e.g., '/users')
+#### Parameters
 
-#### Methods
+*   `data`   (optional, default `{}`)
+*   `options`   (optional, default `{}`)
 
-##### get(key)
+#### Examples
+
+```javascript
+// Define a User model
+interface UserAttributes {
+  id?: number;
+  name: string;
+  email: string;
+  createdAt?: Date;
+}
+
+class User extends Model<UserAttributes> {
+  endpoint(): string {
+    return '/users';
+  }
+}
+
+// Create and use a model instance
+const user = new User({ name: 'John Doe', email: 'john@example.com' });
+await user.save(); // Creates new user on server
+user.set('name', 'Jane Doe');
+await user.save(); // Updates existing user
+```
+
+```javascript
+// Using custom ID attribute (e.g., MongoDB _id)
+interface MongoUserAttributes {
+  _id?: string;
+  username: string;
+  profile: {
+    firstName: string;
+    lastName: string;
+  };
+}
+
+class MongoUser extends Model<MongoUserAttributes> {
+  constructor(data?: Partial<MongoUserAttributes>) {
+    super(data, { idAttribute: '_id' });
+  }
+
+  endpoint(): string {
+    return '/api/users';
+  }
+}
+```
+
+#### idAttribute
+
+Gets the current ID attribute name used by this model instance.
+
+Returns **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** The name of the attribute used as the ID field
+
+#### get
 
 Retrieves the value of a specific attribute from the model.
 
-**Parameters:**
+This method provides type-safe access to model attributes, ensuring that the
+returned value matches the expected type for the given key. It acts as a
+getter for the internal attributes stored in the model instance.
 
-- `key` - The attribute key to retrieve
+##### Parameters
 
-**Returns:** The value associated with the specified key
+*   `key` **K** The attribute key to retrieve the value for
+
+##### Examples
 
 ```javascript
+// Assuming a User model with attributes { id: number, name: string }
 const user = new User({ id: 1, name: 'John Doe' });
-const name = user.get('name'); // Returns 'John Doe'
+const name = user.get('name'); // Returns 'John Doe' (string)
+const id = user.get('id');     // Returns 1 (number)
 ```
 
-##### set(attrs)
+#### has
 
-Updates multiple attributes on the model instance.
+Checks whether a specific attribute has a non-null, non-undefined value.
 
-**Parameters:**
+This method provides a way to determine if an attribute exists and has a
+meaningful value. It returns true if the attribute is set to any value
+other than null or undefined, including falsy values like false, 0, or
+empty strings, which are considered valid values.
 
-- `attrs` - Partial object containing attributes to update
+##### Parameters
+
+*   `key` **K** The attribute key to check
+
+##### Examples
 
 ```javascript
-user.set({ name: 'Jane', email: 'jane@example.com' });
+// Assuming a User model with attributes { id: number, name: string, email?: string }
+const user = new User({ id: 1, name: 'John', email: null });
+
+user.has('id');    // Returns true (value is 1)
+user.has('name');  // Returns true (value is 'John')
+user.has('email'); // Returns false (value is null)
+
+// Even falsy values are considered "set"
+user.set({ name: '' });
+user.has('name');  // Returns true (empty string is a valid value)
 ```
 
-##### isNew()
+Returns **[boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean)** True if the attribute has a non-null, non-undefined value
+
+#### unset
+
+Removes a specific attribute from the model by deleting it from the internal attributes hash.
+
+This method permanently removes an attribute from the model instance. Once unset,
+the attribute will no longer exist on the model and subsequent calls to get() for
+that key will return undefined. This is different from setting an attribute to
+null or undefined, as the property is completely removed from the attributes object.
+
+##### Parameters
+
+*   `key` **K** The attribute key to remove from the model
+
+##### Examples
+
+```javascript
+// Assuming a User model with attributes { id: number, name: string, email: string }
+const user = new User({ id: 1, name: 'John', email: 'john@example.com' });
+
+user.has('email'); // Returns true
+user.unset('email'); // Remove the email attribute
+user.has('email'); // Returns false
+user.get('email'); // Returns undefined
+
+// The attribute is completely removed, not just set to undefined
+const userData = user.toJSON(); // { id: 1, name: 'John' }
+```
+
+Returns **void**&#x20;
+
+#### escape
+
+Retrieves and escapes the HTML content of a specific attribute from the model.
+
+This method provides a safe way to access model attributes that may contain
+user-generated content or data that will be rendered in HTML contexts. It
+automatically applies HTML escaping to prevent XSS attacks and ensure safe
+rendering of potentially dangerous content.
+
+The method uses the escapeHTML utility function to convert special HTML
+characters (such as <, >, &, ", and ') into their corresponding HTML entities,
+making the content safe for direct insertion into HTML templates.
+
+##### Parameters
+
+*   `key` **K** The attribute key to retrieve and escape the value for
+
+##### Examples
+
+```javascript
+// Assuming a Post model with attributes { id: number, title: string, content: string }
+const post = new Post({
+  id: 1,
+  title: 'Hello <script>alert("XSS")</script>',
+  content: 'This is "safe" & secure content'
+});
+
+const safeTitle = post.escape('title');
+// Returns: 'Hello &lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;'
+
+const safeContent = post.escape('content');
+// Returns: 'This is &quot;safe&quot; &amp; secure content'
+```
+
+#### isNew
 
 Determines whether this model instance is new (not yet persisted).
+A model is considered new if it doesn't have an 'id' or '\_id' attribute.
 
-**Returns:** `true` if the model has no ID, `false` otherwise
+Returns **[boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean)** true if the model is new, false if it has been persisted
 
-```javascript
-const newUser = new User({ name: 'John' });
-console.log(newUser.isNew()); // true
-```
-
-##### sync(method, body, options)
+#### sync
 
 Performs HTTP synchronization with the server for CRUD operations.
 
-**Parameters:**
+This method handles all HTTP communication between the model and the server,
+automatically constructing the appropriate URL based on the model's ID and
+endpoint(). It supports all standard REST operations and provides type-safe
+response handling.
 
-- `method` - HTTP method ('GET', 'POST', 'PUT', 'PATCH', 'DELETE'), defaults to 'GET'
-- `body` - Optional request body data
-- `options` - Optional configuration overrides
+The URL construction follows REST conventions:
 
-**Returns:** Promise resolving to server response data or null
+*   For new models (no ID): uses collection endpoint `${baseUrl}${endpoint()}`
+*   For existing models (with ID): uses resource endpoint `${baseUrl}${endpoint()}/${id}`
+
+##### Parameters
+
+*   `method` **(`"GET"` | `"POST"` | `"PUT"` | `"PATCH"` | `"DELETE"`)** The HTTP method to use (defaults to 'GET') (optional, default `'GET'`)
+*   `body` **(Record<[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String), unknown> | T)?** Optional request body data to send
+*   `options`   (optional, default `{}`)
+
+##### Examples
 
 ```javascript
-// Fetch user data
+// Fetch a user by ID (default 'GET' request)
 const userData = await user.sync();
 
-// Create new user
-const newUser = await user.sync('POST', { name: 'John' });
+// Create a new user (POST request)
+const newUser = await user.sync('POST', { name: 'John', email: 'john@example.com' });
 
-// Update user
-const updated = await user.sync('PUT', user.toJSON());
+// Update an existing user (PUT request)
+const updatedUser = await user.sync('PUT', user.toJSON());
+
+// Delete a user (DELETE request)
+await user.sync('DELETE'); // Returns null for 204 responses
 ```
 
-##### fetch()
+*   Throws **[Error](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error)** Throws an error if the HTTP response is not successful
+
+Returns **[Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)<(R | null)>** The server response data, or null for 204 No Content responses
+
+#### fetch
 
 Fetches data from the server and updates the model's attributes.
 
-**Returns:** Promise
+This method performs a GET request to retrieve the latest data for this model
+instance from the server. If the model has an ID, it will fetch the specific
+resource; if it's a new model without an ID, it will make a request to the
+collection endpoint.
+
+Upon successful retrieval, the model's attributes are automatically updated
+with the server response data. This method is useful for refreshing a model's
+state or loading data after creating a model instance with just an ID.
+
+##### Examples
 
 ```javascript
+// Fetch data for an existing user
 const user = new User({ id: 1 });
-await user.fetch(); // Model now contains full user data
+await user.fetch(); // Model now contains full user data from server
+
+// Refresh a model's data
+await existingUser.fetch(); // Updates with latest server data
 ```
 
-##### save()
+*   Throws **[Error](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error)** Throws an error if the HTTP request fails or server returns an error
 
-Saves the model by creating (POST) or updating (PUT) the server resource.
+Returns **[Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)\<void>** A promise that resolves when the fetch operation completes
 
-**Returns:** Promise
+#### save
+
+Saves the model to the server by creating a new resource or updating an existing one.
+
+This method automatically determines whether to create or update based on the model's
+state. If the model is new (has no ID), it performs a POST request to create a new
+resource. If the model already exists (has an ID), it performs a PUT request to
+update the existing resource.
+
+After a successful save operation, the model's attributes are updated with any
+data returned from the server. This is particularly useful when the server
+generates additional fields (like timestamps, computed values, or normalized data)
+during the save process.
+
+##### Examples
 
 ```javascript
-// Create new user
-const newUser = new User({ name: 'John' });
-await newUser.save(); // POST request
+// Create a new user
+const newUser = new User({ name: 'John', email: 'john@example.com' });
+await newUser.save(); // POST request, user now has ID from server
 
-// Update existing user
-user.set({ name: 'Jane' });
-await user.save(); // PUT request
+// Update an existing user
+existingUser.set({ name: 'Jane' });
+await existingUser.save(); // PUT request with updated data
 ```
 
-##### destroy()
+*   Throws **[Error](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error)** Throws an error if the HTTP request fails or server returns an error
+
+Returns **[Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)\<void>** A promise that resolves when the save operation completes
+
+#### destroy
 
 Deletes the model from the server.
 
-**Returns:** Promise
+This method performs a DELETE request to remove the model's corresponding resource
+from the server. The method only executes if the model has an ID (i.e., it exists
+on the server). If the model is new and has no ID, the method will return without
+performing any operation.
+
+The DELETE request is sent to the model's specific resource endpoint using the
+pattern `${baseUrl}${endpoint()}/${id}`. After successful deletion, the model
+instance remains in memory but the corresponding server resource is removed.
+
+##### Examples
 
 ```javascript
-await user.destroy(); // DELETE request to /users/1
-```
-
-##### toJSON()
-
-Returns a plain object representation of the model's attributes.
-
-**Returns:** Plain object containing all attributes
-
-```javascript
+// Delete an existing user
 const user = new User({ id: 1, name: 'John' });
-const userData = user.toJSON();
-// Returns: { id: 1, name: 'John' }
+await user.destroy(); // DELETE request to /users/1
+
+// Attempting to destroy a new model (no operation performed)
+const newUser = new User({ name: 'Jane' }); // No ID
+await newUser.destroy(); // Returns immediately, no HTTP request
 ```
 
-#### Example Usage
+*   Throws **[Error](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error)** Throws an error if the HTTP request fails or server returns an error
+
+Returns **[Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)\<void>** A promise that resolves when the delete operation completes
+
+#### toJSON
+
+Returns a plain JavaScript object representation of the model's attributes.
+
+This method creates a shallow copy of the model's internal attributes, returning
+them as a plain object. This is useful for serialization, debugging, or when you
+need to pass the model's data to functions that expect plain objects rather than
+model instances.
+
+The returned object is a copy, so modifications to it will not affect the original
+model's attributes. This method is commonly used internally by other model methods
+(like save()) when preparing data for HTTP requests.
+
+##### Examples
 
 ```javascript
-class User extends Model {
-	endpoint() {
-		return '/users';
-	}
+// Get plain object representation
+const user = new User({ id: 1, name: 'John', email: 'john@example.com' });
+const userData = user.toJSON();
+// Returns: { id: 1, name: 'John', email: 'john@example.com' }
+
+// Useful for serialization
+const jsonString = JSON.stringify(user.toJSON());
+```
+
+Returns **T** A plain object containing all of the model's attributes
+
+### Collection
+
+Abstract base class for managing collections of Model instances.
+
+Provides a reactive collection that can be populated with data, fetched from a server,
+and manipulated with type-safe operations. The collection is backed by Svelte's reactivity
+system for automatic UI updates.
+
+#### Parameters
+
+*   `models`  Optional array of data objects to initialize the collection with (optional, default `[]`)
+
+#### Examples
+
+```javascript
+class UserCollection extends Collection<UserModel, User> {
+  model = UserModel;
+  endpoint = () => '/api/users';
 }
 
-// Create and save new user
-const user = new User({ name: 'John', email: 'john@example.com' });
-await user.save();
-
-// Fetch existing user
-const existingUser = new User({ id: 1 });
-await existingUser.fetch();
-
-// Update user
-existingUser.set({ name: 'Jane' });
-await existingUser.save();
-
-// Delete user
-await existingUser.destroy();
+const users = new UserCollection();
+await users.fetch(); // Loads users from API
+users.add({ name: 'John', email: 'john@example.com' }); // Adds new user
 ```
 
-### `Collection<M, T>`
+#### items
 
-The `Collection` class provides a reactive container for managing groups of Model instances with automatic UI updates.
+Reactive array of model instances in the collection
 
-#### Constructor
+#### length
 
-```javascript
-new Collection((models = []));
-```
+Gets the number of items in the collection
 
-Creates a new Collection instance with optional initial data.
-
-**Parameters:**
-
-- `models` (Array) - Optional array of data objects to initialize the collection
-
-#### Properties
-
-- `items` - Reactive array of model instances in the collection
-- `length` - Number of items in the collection (read-only)
-
-#### Abstract Properties
-
-These must be implemented by subclasses:
-
-- `model` - The Model class constructor for creating instances
-- `endpoint()` - Function that returns the API endpoint URL
-
-#### Methods
-
-##### add(data)
+#### add
 
 Adds a new item to the collection.
 
-**Parameters:**
+##### Parameters
 
-- `data` - Raw data object or existing model instance
+*   `data`  Either raw data of type T or an existing model instance of type M
 
-**Returns:** The model instance that was added
+##### Examples
 
 ```javascript
+// Add raw data
 const user = collection.add({ name: 'John', email: 'john@example.com' });
+
+// Add existing model instance
+const existingUser = new UserModel({ name: 'Jane' });
+collection.add(existingUser);
 ```
 
-##### reset(data)
+Returns **any** The model instance that was added to the collection
 
-Replaces all items in the collection with new data.
+#### reset
 
-**Parameters:**
+Resets the collection with new data, replacing all existing items.
 
-- `data` - Array of raw data objects
+##### Parameters
+
+*   `data`  An array of raw data objects to populate the collection with
+
+##### Examples
 
 ```javascript
+// Reset collection with new user data
 collection.reset([
-	{ id: 1, name: 'John' },
-	{ id: 2, name: 'Jane' }
+  { id: 1, name: 'John', email: 'john@example.com' },
+  { id: 2, name: 'Jane', email: 'jane@example.com' }
 ]);
 ```
 
-##### find(query)
+#### find
 
-Finds the first item matching the query object.
+Finds the first item in the collection that matches the given query.
 
-**Parameters:**
+##### Parameters
 
-- `query` - Object with key-value pairs to match
+*   `query`  An object containing key-value pairs to match against items in the collection.
+    Only items that match all specified properties will be returned.
 
-**Returns:** The first matching item or `undefined`
+##### Examples
 
 ```javascript
+// Find a user by ID
 const user = collection.find({ id: 123 });
+
+// Find by multiple properties
 const activeAdmin = collection.find({ role: 'admin', status: 'active' });
 ```
 
-##### fetch(options)
+Returns **any** The first matching item, or undefined if no match is found.
+
+#### fetch
 
 Fetches data from the server and populates the collection.
 
-**Parameters:**
+##### Parameters
 
-- `options.search` - Optional search parameters for the query string
+*   `options`  Configuration options for the fetch request (optional, default `{}`)
 
-**Returns:** Promise
+    *   `options.endpoint`  Optional endpoint to use if different than this.endpoint()
+    *   `options.search`  Optional search parameters to include in the query string.
+        Keys and values will be converted to strings and URL-encoded.
+
+##### Examples
 
 ```javascript
 // Fetch all items
@@ -375,6 +708,8 @@ await collection.fetch();
 
 // Fetch with search parameters
 await collection.fetch({
-	search: { limit: 30, after: 29 }
+  search: { limit: 30, after: 29 }
 });
 ```
+
+*   Throws **[Error](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error)** Throws an error if the HTTP request fails or returns a non-ok status

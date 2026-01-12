@@ -9,6 +9,67 @@ export interface SyncOptions extends Partial<VellumConfig> {
 	endpoint?: string;
 }
 
+/**
+ * Abstract base class for creating model instances that interact with RESTful APIs.
+ *
+ * The Model class provides a structured way to manage data objects with full CRUD
+ * (Create, Read, Update, Delete) capabilities. It includes built-in HTTP synchronization,
+ * attribute management, and data validation features. This class is designed to work
+ * with Svelte's reactivity system using the `$state` rune for automatic UI updates.
+ *
+ * Key features:
+ * - Type-safe attribute access and manipulation
+ * - Automatic HTTP synchronization with RESTful APIs
+ * - Built-in HTML escaping for XSS prevention
+ * - Configurable ID attributes for different database schemas
+ * - Reactive attributes that integrate with Svelte's state management
+ * - Support for both single attribute and bulk attribute operations
+ *
+ * @template T - The type definition for the model's attributes, must extend object
+ * @abstract This class must be extended by concrete model implementations
+ *
+ * @example
+ * // Define a User model
+ * interface UserAttributes {
+ *   id?: number;
+ *   name: string;
+ *   email: string;
+ *   createdAt?: Date;
+ * }
+ *
+ * class User extends Model<UserAttributes> {
+ *   endpoint(): string {
+ *     return '/users';
+ *   }
+ * }
+ *
+ * // Create and use a model instance
+ * const user = new User({ name: 'John Doe', email: 'john@example.com' });
+ * await user.save(); // Creates new user on server
+ * user.set('name', 'Jane Doe');
+ * await user.save(); // Updates existing user
+ *
+ * @example
+ * // Using custom ID attribute (e.g., MongoDB _id)
+ * interface MongoUserAttributes {
+ *   _id?: string;
+ *   username: string;
+ *   profile: {
+ *     firstName: string;
+ *     lastName: string;
+ *   };
+ * }
+ *
+ * class MongoUser extends Model<MongoUserAttributes> {
+ *   constructor(data?: Partial<MongoUserAttributes>) {
+ *     super(data, { idAttribute: '_id' });
+ *   }
+ *
+ *   endpoint(): string {
+ *     return '/api/users';
+ *   }
+ * }
+ */
 export abstract class Model<T extends object> {
 	#attributes = $state<T>({} as T);
 
@@ -58,18 +119,6 @@ export abstract class Model<T extends object> {
 		this.#idAttribute = options.idAttribute ?? 'id';
 	}
 
-	/**
-	 * Gets the current ID attribute name used by this model instance.
-	 *
-	 * @returns {string} The name of the attribute used as the ID field
-	 */
-	get idAttribute(): string {
-		return this.#idAttribute;
-	}
-
-	/**
-	 * Internal helper to find the ID
-	 */
 	#getId(): string | number | undefined {
 		const id = this.#attributes[this.#idAttribute as keyof T];
 
@@ -78,6 +127,15 @@ export abstract class Model<T extends object> {
 		}
 
 		return undefined;
+	}
+
+	/**
+	 * Gets the current ID attribute name used by this model instance.
+	 *
+	 * @returns {string} The name of the attribute used as the ID field
+	 */
+	get idAttribute(): string {
+		return this.#idAttribute;
 	}
 
 	/**
