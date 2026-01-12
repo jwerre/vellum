@@ -1,6 +1,6 @@
 # Vellum
 
-Vellum is a lightweight, structural state management library for Svelte 5. Vellum provides a robust Model and Collection base powered by Svelte Runes.It bridges the gap between raw objects and complex state logic, offering a typed, class-based approach to managing data-heavy applications.
+Vellum is a lightweight, structural state management library for Svelte 5. Vellum provides a robust Model and Collection base powered by Svelte Runes. It bridges the gap between raw objects and complex state logic, offering a typed, class-based approach to managing data-heavy applications.
 
 ## Features
 

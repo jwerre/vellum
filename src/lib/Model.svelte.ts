@@ -1,4 +1,9 @@
 import { type VellumConfig, vellumConfig } from './config.svelte';
+import { escapeHTML } from './utils.js';
+
+export interface ModelOptions {
+	idAttribute?: string;
+}
 
 export interface SyncOptions extends Partial<VellumConfig> {
 	endpoint?: string;
@@ -6,6 +11,26 @@ export interface SyncOptions extends Partial<VellumConfig> {
 
 export abstract class Model<T extends object> {
 	#attributes = $state<T>({} as T);
+
+	/**
+	 * The name of the attribute that serves as the unique identifier for this model instance.
+	 *
+	 * This private field stores the attribute name that will be used to identify the model's
+	 * primary key when performing operations like determining if the model is new, constructing
+	 * URLs for API requests, and managing model identity. The default value is 'id', but it
+	 * can be customized through the ModelOptions parameter in the constructor.
+	 *
+	 * @private
+	 * @type {string}
+	 * @default 'id'
+	 * @example
+	 * // Default behavior uses 'id' as the identifier
+	 * const user = new User({ id: 1, name: 'John' });
+	 *
+	 * // Custom ID attribute can be specified in constructor options
+	 * const user = new User({ _id: '507f1f77bcf86cd799439011', name: 'John' }, { idAttribute: '_id' });
+	 */
+	#idAttribute = 'id';
 
 	/**
 	 * Abstract method that must be implemented by subclasses to define the base URL path
@@ -25,21 +50,33 @@ export abstract class Model<T extends object> {
 	 */
 	abstract endpoint(): string;
 
-	constructor(data: Partial<T> = {}) {
+	constructor(data: Partial<T> = {}, options: ModelOptions = {}) {
+		// Initialize model attributes with provided data, ensuring type safety
 		this.#attributes = { ...data } as T;
+
+		// Set the ID attribute name, defaulting to 'id' if not specified in options
+		this.#idAttribute = options.idAttribute ?? 'id';
+	}
+
+	/**
+	 * Gets the current ID attribute name used by this model instance.
+	 *
+	 * @returns {string} The name of the attribute used as the ID field
+	 */
+	get idAttribute(): string {
+		return this.#idAttribute;
 	}
 
 	/**
 	 * Internal helper to find the ID
 	 */
 	#getId(): string | number | undefined {
-		// Cast to Record<string, unknown> to allow string indexing
-		const attrs = this.#attributes as Record<string, unknown>;
-		const id = attrs['id'] ?? attrs['_id'];
+		const id = this.#attributes[this.#idAttribute as keyof T];
 
-		if (typeof id === 'string' || typeof id === 'number') {
+		if (typeof id === 'number' || (typeof id === 'string' && id.length > 0)) {
 			return id;
 		}
+
 		return undefined;
 	}
 
@@ -71,22 +108,128 @@ export abstract class Model<T extends object> {
 	 * shallow merge, meaning that only the top-level properties specified in the attrs
 	 * parameter will be updated, while other existing attributes remain unchanged.
 	 *
+	 * @overload
+	 * @param {K} key - The attribute key to set
+	 * @param {T[K]} value - The value to set for the specified key
+	 * @returns {void}
+	 *
+	 * @overload
 	 * @param {Partial<T>} attrs - A partial object containing the attributes to update
+	 * @returns {void}
+	 *
+	 * @example
+	 * // Set a single attribute
+	 * user.set('name', 'Jane');
+	 *
+	 * // Set multiple attributes
+	 * user.set({ name: 'Jane', email: 'jane@example.com' });
+	 */
+	set<K extends keyof T>(key: K, value: T[K]): void;
+	set(attrs: Partial<T>): void;
+	set<K extends keyof T>(keyOrAttrs: K | Partial<T>, value?: T[K]): void {
+		if (
+			typeof keyOrAttrs === 'string' ||
+			typeof keyOrAttrs === 'number' ||
+			typeof keyOrAttrs === 'symbol'
+		) {
+			if (value !== undefined) {
+				this.#attributes[keyOrAttrs as K] = value as T[K];
+			}
+		} else {
+			Object.assign(this.#attributes, keyOrAttrs);
+		}
+	}
+
+	/**
+	 * Checks whether a specific attribute has a non-null, non-undefined value.
+	 *
+	 * This method provides a way to determine if an attribute exists and has a
+	 * meaningful value. It returns true if the attribute is set to any value
+	 * other than null or undefined, including falsy values like false, 0, or
+	 * empty strings, which are considered valid values.
+	 *
+	 * @template K - The key type, constrained to keys of T
+	 * @param {K} key - The attribute key to check
+	 * @returns {boolean} True if the attribute has a non-null, non-undefined value
+	 * @example
+	 * // Assuming a User model with attributes { id: number, name: string, email?: string }
+	 * const user = new User({ id: 1, name: 'John', email: null });
+	 *
+	 * user.has('id');    // Returns true (value is 1)
+	 * user.has('name');  // Returns true (value is 'John')
+	 * user.has('email'); // Returns false (value is null)
+	 *
+	 * // Even falsy values are considered "set"
+	 * user.set({ name: '' });
+	 * user.has('name');  // Returns true (empty string is a valid value)
+	 */
+	has<K extends keyof T>(key: K): boolean {
+		const value = this.#attributes[key];
+		return value !== null && value !== undefined;
+	}
+
+	/**
+	 * Removes a specific attribute from the model by deleting it from the internal attributes hash.
+	 *
+	 * This method permanently removes an attribute from the model instance. Once unset,
+	 * the attribute will no longer exist on the model and subsequent calls to get() for
+	 * that key will return undefined. This is different from setting an attribute to
+	 * null or undefined, as the property is completely removed from the attributes object.
+	 *
+	 * @template K - The key type, constrained to keys of T
+	 * @param {K} key - The attribute key to remove from the model
 	 * @returns {void}
 	 * @example
 	 * // Assuming a User model with attributes { id: number, name: string, email: string }
 	 * const user = new User({ id: 1, name: 'John', email: 'john@example.com' });
 	 *
-	 * // Update multiple attributes at once
-	 * user.set({ name: 'Jane', email: 'jane@example.com' });
-	 * // Now user has { id: 1, name: 'Jane', email: 'jane@example.com' }
+	 * user.has('email'); // Returns true
+	 * user.unset('email'); // Remove the email attribute
+	 * user.has('email'); // Returns false
+	 * user.get('email'); // Returns undefined
 	 *
-	 * // Update a single attribute
-	 * user.set({ name: 'Bob' });
-	 * // Now user has { id: 1, name: 'Bob', email: 'jane@example.com' }
+	 * // The attribute is completely removed, not just set to undefined
+	 * const userData = user.toJSON(); // { id: 1, name: 'John' }
 	 */
-	set(attrs: Partial<T>): void {
-		Object.assign(this.#attributes, attrs);
+	unset<K extends keyof T>(key: K): void {
+		// Cast to Record to allow delete operation
+		const attrs = this.#attributes as Record<string | number | symbol, unknown>;
+		delete attrs[key as string | number | symbol];
+	}
+
+	/**
+	 * Retrieves and escapes the HTML content of a specific attribute from the model.
+	 *
+	 * This method provides a safe way to access model attributes that may contain
+	 * user-generated content or data that will be rendered in HTML contexts. It
+	 * automatically applies HTML escaping to prevent XSS attacks and ensure safe
+	 * rendering of potentially dangerous content.
+	 *
+	 * The method uses the escapeHTML utility function to convert special HTML
+	 * characters (such as <, >, &, ", and ') into their corresponding HTML entities,
+	 * making the content safe for direct insertion into HTML templates.
+	 *
+	 * @template K - The key type, constrained to keys of T
+	 * @param {K} key - The attribute key to retrieve and escape the value for
+	 * @returns {T[K]} The HTML-escaped value associated with the specified key
+	 * @example
+	 * // Assuming a Post model with attributes { id: number, title: string, content: string }
+	 * const post = new Post({
+	 *   id: 1,
+	 *   title: 'Hello <script>alert("XSS")</script>',
+	 *   content: 'This is "safe" & secure content'
+	 * });
+	 *
+	 * const safeTitle = post.escape('title');
+	 * // Returns: 'Hello &lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;'
+	 *
+	 * const safeContent = post.escape('content');
+	 * // Returns: 'This is &quot;safe&quot; &amp; secure content'
+	 */
+	escape<K extends keyof T>(key: K): string {
+		const val = this.#attributes[key];
+		if (val === undefined || val === null) return '';
+		return escapeHTML(val.toString());
 	}
 
 	/**

@@ -28,11 +28,46 @@ describe('Vellum Model', () => {
 
 	it('should instantiate a model', async () => {
 		const data = { name: 'New Item' };
+		const model = new TestModel(data);
+		expect(model.get('name')).toBe(data.name);
+	});
+
+	it('should set a single attribute', async () => {
 		const email = 'test@example.com';
+		const model = new TestModel();
+		model.set('email', email);
+		expect(model.get('email')).toBe(email);
+	});
+
+	it('should set multiple properties', async () => {
+		const data = { name: 'John Smith', email: 'test@example.com' };
+		const model = new TestModel();
+		model.set(data);
+		expect(model.get('name')).toBe(data.name);
+		expect(model.get('email')).toBe(data.email);
+	});
+
+	it('should ensure that mode has a property', async () => {
+		const data = { name: 'John Smith' };
+		const model = new TestModel(data);
+		model.set('email', 'test@example.com');
+		expect(model.has('name')).toBe(true);
+		expect(model.has('email')).toBe(true);
+	});
+
+	it('should unset a property', async () => {
+		const data = { name: 'John Smith', email: 'test@example.com' };
+		const model = new TestModel(data);
+		expect(model.get('name')).toBe(data.name);
+		expect(model.get('email')).toBe(data.email);
+	});
+
+	it('should check if a model is new or not', async () => {
+		const data = { name: 'New model' };
 		const model = new TestModel(data);
 		expect(model.isNew()).toBe(true);
-		model.set({ email: email });
-		expect(model.get('email')).toBe(email);
+		model.set('id', '123');
+		expect(model.isNew()).toBe(false);
 	});
 
 	it('should parse model attributes', async () => {
