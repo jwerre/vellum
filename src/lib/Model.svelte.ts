@@ -1,5 +1,9 @@
 import { type VellumConfig, vellumConfig } from './config.svelte';
 
+export interface SyncOptions extends Partial<VellumConfig> {
+	endpoint?: string;
+}
+
 export abstract class Model<T extends object> {
 	#attributes = $state<T>({} as T);
 
@@ -129,10 +133,11 @@ export abstract class Model<T extends object> {
 	async sync<R = T>(
 		method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'GET',
 		body?: Record<string, unknown> | T,
-		options?: VellumConfig
+		options: SyncOptions = {}
 	): Promise<R | null> {
 		const id = this.#getId();
-		const fullUrl = `${vellumConfig.origin}${this.endpoint()}`;
+		const endpoint = options?.endpoint?.length ? options.endpoint : this.endpoint();
+		const fullUrl = `${vellumConfig.origin}${endpoint}`;
 		const url = id ? `${fullUrl}/${id}` : fullUrl;
 		const fetchOpts = {
 			method,

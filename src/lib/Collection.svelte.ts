@@ -1,6 +1,11 @@
 import { SvelteURLSearchParams } from 'svelte/reactivity';
 import { Model } from './Model.svelte';
-import { vellumConfig } from './config.svelte';
+import { type VellumConfig, vellumConfig } from './config.svelte';
+
+export interface FetchOptions extends Partial<VellumConfig> {
+	endpoint?: string;
+	search?: Record<string, string | number | boolean>;
+}
 
 /**
  * Abstract base class for managing collections of Model instances.
@@ -130,7 +135,8 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	 * Fetches data from the server and populates the collection.
 	 *
 	 * @param options - Configuration options for the fetch request
-	 * @param options.search - Optional search parameters to include in the query string.
+	 * @param [options.endpoint] - Optional endpoint to use if different than this.endpoint()
+	 * @param [options.search] - Optional search parameters to include in the query string.
 	 *                        Keys and values will be converted to strings and URL-encoded.
 	 *
 	 * @throws {Error} Throws an error if the HTTP request fails or returns a non-ok status
@@ -146,7 +152,7 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	 * });
 	 * ```
 	 */
-	async fetch(options: { search?: Record<string, string | number | boolean> } = {}): Promise<void> {
+	async fetch(options: FetchOptions = {}): Promise<void> {
 		let query = '';
 
 		if (options.search) {
@@ -157,7 +163,8 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 			query = `?${params.toString()}`;
 		}
 
-		const fullUrl = `${vellumConfig.origin}${this.endpoint()}${query}`;
+		const endpoint = options?.endpoint?.length ? options.endpoint : this.endpoint();
+		const fullUrl = `${vellumConfig.origin}${endpoint}${query}`;
 		const response = await fetch(fullUrl, {
 			headers: { ...vellumConfig.headers }
 		});
