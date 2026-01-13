@@ -36,6 +36,20 @@ export class UserModel extends Model<User> {
 	endpoint() {
 		return '/api/users';
 	}
+
+	validate(attr: Partial<User>) {
+		if (!attr.name?.length) {
+			return 'Name is required';
+		}
+
+		if (!attr.email?.length) {
+			return 'Email is required';
+		}
+
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(attr.email)) {
+			return 'Email must be valid';
+		}
+	}
 }
 
 export class UserCollection extends Collection<UserModel, User> {
@@ -49,11 +63,20 @@ export class UserCollection extends Collection<UserModel, User> {
 
 	async updateUser(id: User['id'], data: Pick<Partial<User>, 'name' | 'email'>) {
 		const user = this.items.find((user) => user.get('id') === id);
-		if (user) {
-			user.set(data);
-			// console.log(user.toJSON());
-			await user.save(); // PUT to /api/users/:id
+
+		if (!user) {
+			return;
 		}
+
+		const valid = user.set(data, { validate: true });
+
+		console.log(valid, user.toJSON());
+
+		if (!valid && user.validationError) {
+			alert(user.validationError.message);
+		}
+
+		await user.save(); // PUT to /api/users/:id
 	}
 
 	async addUser() {

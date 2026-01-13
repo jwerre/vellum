@@ -160,6 +160,7 @@ Vellum works seamlessly with Svelte 5 components.
 *   [Model](#model)
     *   [Parameters](#parameters-1)
     *   [Examples](#examples-1)
+    *   [validationError](#validationerror)
     *   [idAttribute](#idattribute)
     *   [get](#get)
         *   [Parameters](#parameters-2)
@@ -170,38 +171,47 @@ Vellum works seamlessly with Svelte 5 components.
     *   [unset](#unset)
         *   [Parameters](#parameters-4)
         *   [Examples](#examples-4)
+    *   [clear](#clear)
+        *   [Examples](#examples-5)
     *   [escape](#escape)
         *   [Parameters](#parameters-5)
-        *   [Examples](#examples-5)
-    *   [isNew](#isnew)
-    *   [sync](#sync)
-        *   [Parameters](#parameters-6)
         *   [Examples](#examples-6)
-    *   [fetch](#fetch)
+    *   [isNew](#isnew)
+    *   [isValid](#isvalid)
+        *   [Parameters](#parameters-6)
         *   [Examples](#examples-7)
-    *   [save](#save)
+    *   [validate](#validate)
+        *   [Parameters](#parameters-7)
         *   [Examples](#examples-8)
-    *   [destroy](#destroy)
+    *   [sync](#sync)
+        *   [Parameters](#parameters-8)
         *   [Examples](#examples-9)
-    *   [toJSON](#tojson)
+    *   [fetch](#fetch)
         *   [Examples](#examples-10)
+    *   [save](#save)
+        *   [Parameters](#parameters-9)
+        *   [Examples](#examples-11)
+    *   [destroy](#destroy)
+        *   [Examples](#examples-12)
+    *   [toJSON](#tojson)
+        *   [Examples](#examples-13)
 *   [Collection](#collection)
-    *   [Parameters](#parameters-7)
-    *   [Examples](#examples-11)
+    *   [Parameters](#parameters-10)
+    *   [Examples](#examples-14)
     *   [items](#items)
     *   [length](#length)
     *   [add](#add)
-        *   [Parameters](#parameters-8)
-        *   [Examples](#examples-12)
-    *   [reset](#reset)
-        *   [Parameters](#parameters-9)
-        *   [Examples](#examples-13)
-    *   [find](#find)
-        *   [Parameters](#parameters-10)
-        *   [Examples](#examples-14)
-    *   [fetch](#fetch-1)
         *   [Parameters](#parameters-11)
         *   [Examples](#examples-15)
+    *   [reset](#reset)
+        *   [Parameters](#parameters-12)
+        *   [Examples](#examples-16)
+    *   [find](#find)
+        *   [Parameters](#parameters-13)
+        *   [Examples](#examples-17)
+    *   [fetch](#fetch-1)
+        *   [Parameters](#parameters-14)
+        *   [Examples](#examples-18)
 
 ### vellumConfig
 
@@ -313,6 +323,11 @@ class MongoUser extends Model<MongoUserAttributes> {
 }
 ```
 
+#### validationError
+
+Validation error property that gets set when validation fails.
+This property contains the error returned by the validate method.
+
 #### idAttribute
 
 Gets the current ID attribute name used by this model instance.
@@ -400,6 +415,36 @@ const userData = user.toJSON(); // { id: 1, name: 'John' }
 
 Returns **void**&#x20;
 
+#### clear
+
+Removes all attributes from the model, including the id attribute.
+
+This method completely clears the model instance by removing all stored attributes,
+effectively resetting it to an empty state. After calling clear(), the model will
+behave as if it were newly instantiated with no data. This includes removing the
+ID attribute, which means the model will be considered "new" after clearing.
+
+This is useful when you want to reuse a model instance for different data or
+reset a model to its initial state without creating a new instance.
+
+##### Examples
+
+```javascript
+// Clear all data from a user model
+const user = new User({ id: 1, name: 'John', email: 'john@example.com' });
+user.clear();
+
+user.has('id');    // Returns false
+user.has('name');  // Returns false
+user.isNew();      // Returns true
+user.toJSON();     // Returns {}
+
+// Model can be reused with new data
+user.set({ name: 'Jane', email: 'jane@example.com' });
+```
+
+Returns **void**&#x20;
+
 #### escape
 
 Retrieves and escapes the HTML content of a specific attribute from the model.
@@ -440,6 +485,83 @@ Determines whether this model instance is new (not yet persisted).
 A model is considered new if it doesn't have an 'id' or '\_id' attribute.
 
 Returns **[boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean)** true if the model is new, false if it has been persisted
+
+#### isValid
+
+Validates the current model instance and returns whether it passes validation.
+
+This method performs validation on the model's current attributes using the
+validate() method defined by the subclass. It's a convenience method that
+allows you to check if a model is valid without having to manually call
+the validation logic.
+
+If validation fails, the validationError property will be set with details
+about what went wrong. If validation passes, validationError will be cleared.
+
+##### Parameters
+
+*   `options` **ValidationOptions?** Optional validation configuration
+
+    *   `options.silent` **[boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean)?** If true, suppresses validation error setting
+
+##### Examples
+
+```javascript
+// Check if a user model is valid
+const user = new User({ name: '', email: 'invalid-email' });
+
+if (!user.isValid()) {
+  console.log('Validation failed:', user.validationError);
+  // Handle validation errors
+} else {
+  // Proceed with saving or other operations
+  await user.save();
+}
+```
+
+```javascript
+// Validate silently without setting validationError
+const isValid = user.isValid({ silent: true });
+// user.validationError remains unchanged
+```
+
+Returns **[boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean)** True if the model passes validation, false otherwise
+
+#### validate
+
+Validates the model's attributes using custom validation logic.
+
+This method is intended to be overridden by subclasses to implement custom
+validation rules. By default, it returns undefined (no validation errors).
+If validation fails, this method should return an error - either a simple
+string message or a complete error object.
+
+The validate method is automatically called by save() before persisting data,
+and can also be explicitly called by set() when the {validate: true} option
+is passed. If validation fails, the save operation is aborted and model
+attributes are not modified.
+
+##### Parameters
+
+*   `attributes` **Partial\<T>** The attributes to validate
+*   `options` **any?** Additional options passed from set() or save()
+
+##### Examples
+
+```javascript
+// Override in a User model subclass
+validate(attributes: Partial<UserAttributes>) {
+  if (!attributes.email) {
+    return 'Email is required';
+  }
+  if (!attributes.email.includes('@')) {
+    return { email: 'Invalid email format' };
+  }
+  // Return undefined if validation passes
+}
+```
+
+Returns **any** Returns undefined if valid, or an error (string/object) if invalid
 
 #### sync
 
@@ -523,6 +645,10 @@ data returned from the server. This is particularly useful when the server
 generates additional fields (like timestamps, computed values, or normalized data)
 during the save process.
 
+##### Parameters
+
+*   `options` &#x20;
+
 ##### Examples
 
 ```javascript
@@ -533,11 +659,20 @@ await newUser.save(); // POST request, user now has ID from server
 // Update an existing user
 existingUser.set({ name: 'Jane' });
 await existingUser.save(); // PUT request with updated data
+
+// Save without validation
+await user.save({ validate: false });
+
+// Save with custom endpoint and headers
+await user.save({
+  endpoint: '/api/v2/users',
+  headers: { 'Custom-Header': 'value' }
+});
 ```
 
 *   Throws **[Error](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error)** Throws an error if the HTTP request fails or server returns an error
 
-Returns **[Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)\<void>** A promise that resolves when the save operation completes
+Returns **[Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)<[boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean)>** A promise that resolves to true if save succeeds, false if validation fails
 
 #### destroy
 

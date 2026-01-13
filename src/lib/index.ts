@@ -1,5 +1,10 @@
-// Reexport your entry components here
 export { vellumConfig, configureVellum } from './config.svelte.js';
-export { Model } from './Model.svelte.js';
-export { Collection } from './Collection.svelte.js';
+export { type ValidationDetails, ValidationError } from './errors/validation_error.js';
+export {
+	type ModelOptions,
+	type SyncOptions,
+	type ValidationOptions,
+	Model
+} from './Model.svelte.js';
+export { type FetchOptions, Collection } from './Collection.svelte.js';
 export * as utils from './utils.js';

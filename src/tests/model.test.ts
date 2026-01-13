@@ -1,10 +1,11 @@
 import { type Mock, describe, it, expect, vi, beforeEach } from 'vitest';
-import { configureVellum, Model } from '../lib/index.js';
+import { configureVellum, Model, ValidationError } from '../lib/index.js';
 
 interface TestSchema {
 	id?: string;
 	name: string;
 	email?: string;
+	age?: number;
 }
 
 class TestModel extends Model<TestSchema> {
@@ -26,153 +27,241 @@ describe('Vellum Model', () => {
 		});
 	});
 
-	it('should instantiate a model', async () => {
-		const data = { name: 'New Item' };
-		const model = new TestModel(data);
-		expect(model.get('name')).toBe(data.name);
-	});
-
-	it('should set a single attribute', async () => {
-		const email = 'test@example.com';
-		const model = new TestModel();
-		model.set('email', email);
-		expect(model.get('email')).toBe(email);
-	});
-
-	it('should set multiple properties', async () => {
-		const data = { name: 'John Smith', email: 'test@example.com' };
-		const model = new TestModel();
-		model.set(data);
-		expect(model.get('name')).toBe(data.name);
-		expect(model.get('email')).toBe(data.email);
-	});
-
-	it('should ensure that mode has a property', async () => {
-		const data = { name: 'John Smith' };
-		const model = new TestModel(data);
-		model.set('email', 'test@example.com');
-		expect(model.has('name')).toBe(true);
-		expect(model.has('email')).toBe(true);
-	});
-
-	it('should unset a property', async () => {
-		const data = { name: 'John Smith', email: 'test@example.com' };
-		const model = new TestModel(data);
-		expect(model.get('name')).toBe(data.name);
-		expect(model.get('email')).toBe(data.email);
-	});
-
-	it('should check if a model is new or not', async () => {
-		const data = { name: 'New model' };
-		const model = new TestModel(data);
-		expect(model.isNew()).toBe(true);
-		model.set('id', '123');
-		expect(model.isNew()).toBe(false);
-	});
-
-	it('should parse model attributes', async () => {
-		const data = { id: '123', name: 'Some Item' };
-		const model = new TestModel(data);
-		expect(model.toJSON()).toStrictEqual(data);
-	});
-
-	it('should save a new document', async () => {
-		const mockResponse = { id: '123', name: 'New Item' };
-
-		// Use the typed mock reference instead of 'as any'
-		fetchMock.mockResolvedValue({
-			ok: true,
-			status: 201,
-			json: async () => mockResponse
+	describe('Basics', () => {
+		it('should instantiate a model', async () => {
+			const data = { name: 'New Item' };
+			const model = new TestModel(data);
+			expect(model.get('name')).toBe(data.name);
 		});
 
-		const model = new TestModel({ name: mockResponse.name });
-		await model.save();
-
-		expect(fetchMock).toHaveBeenCalledWith(
-			'https://api.example.com/test',
-			expect.objectContaining({
-				method: 'POST',
-				body: JSON.stringify({ name: mockResponse.name })
-			})
-		);
-		expect(model.get('id')).toBe(mockResponse.id);
-	});
-
-	it('should updated the document', async () => {
-		const mockResponse = { id: '123', name: 'Updated Item' };
-
-		// Use the typed mock reference instead of 'as any'
-		fetchMock.mockResolvedValue({
-			ok: true,
-			status: 201,
-			json: async () => mockResponse
+		it('should set a single attribute', async () => {
+			const email = 'test@example.com';
+			const model = new TestModel();
+			model.set('email', email);
+			expect(model.get('email')).toBe(email);
 		});
 
-		const model = new TestModel(mockResponse);
-		await model.save();
+		it('should set multiple properties', async () => {
+			const data = { name: 'John Smith', email: 'test@example.com' };
+			const model = new TestModel();
+			model.set(data);
+			expect(model.get('name')).toBe(data.name);
+			expect(model.get('email')).toBe(data.email);
+		});
 
-		expect(fetchMock).toHaveBeenCalledWith(
-			`https://api.example.com/test/${mockResponse.id}`,
-			expect.objectContaining({
-				method: 'PUT',
-				body: JSON.stringify(mockResponse),
-				headers: {
-					'Content-Type': 'application/json'
+		it('should ensure that mode has a property', async () => {
+			const data = { name: 'John Smith' };
+			const model = new TestModel(data);
+			model.set('email', 'test@example.com');
+			expect(model.has('name')).toBe(true);
+			expect(model.has('email')).toBe(true);
+		});
+
+		it('should unset a property', async () => {
+			const data = { name: 'John Smith', email: 'test@example.com' };
+			const model = new TestModel(data);
+			expect(model.get('name')).toBe(data.name);
+			expect(model.get('email')).toBe(data.email);
+		});
+
+		it('should check if a model is new or not', async () => {
+			const data = { name: 'New model' };
+			const model = new TestModel(data);
+			expect(model.isNew()).toBe(true);
+			model.set('id', '123');
+			expect(model.isNew()).toBe(false);
+		});
+
+		it('should parse model attributes', async () => {
+			const data = { id: '123', name: 'Some Item' };
+			const model = new TestModel(data);
+			expect(model.toJSON()).toStrictEqual(data);
+		});
+
+		it('should clear the model', async () => {
+			const data = { id: '123', name: 'Some Item' };
+			const model = new TestModel(data);
+			model.clear();
+			expect(model.get('id')).toBeUndefined();
+			expect(model.get('name')).toBeUndefined();
+		});
+	});
+
+	describe('Validation', () => {
+		class User extends Model<TestSchema> {
+			endpoint() {
+				return '/users';
+			}
+
+			validate(attr: Partial<TestSchema>) {
+				if (attr.age && attr.age < 18) {
+					return 'Must be an adult';
 				}
-			})
-		);
-		expect(model.get('id')).toBe(mockResponse.id);
-	});
 
-	it('should retrieve the model', async () => {
-		const mockResponse = { id: '123', name: 'Some Item' };
+				if (!attr.email || attr.email === '') {
+					return 'Must provide an email';
+				}
 
-		fetchMock.mockResolvedValue({
-			ok: true,
-			status: 200,
-			json: async () => mockResponse
+				if (!attr.email.includes('@')) {
+					return 'Email must be valid';
+				}
+			}
+		}
+
+		it('should validate a user', () => {
+			const user = new User({ email: 'testing@testing.tst', age: 25 });
+			expect(user.validationError).toBeUndefined();
+			expect(user.isValid()).toBe(true);
 		});
 
-		const model = new TestModel({ id: mockResponse.id });
-		await model.fetch();
+		it('should fail to set property when validate is true and data is invalid', () => {
+			const age = 25;
+			const user = new User({ email: 'testing@testing.tst', age });
+			const result = user.set({ age: 15 }, { validate: true });
 
-		expect(fetchMock).toHaveBeenCalledWith(
-			expect.stringContaining(mockResponse.id),
-			expect.objectContaining({ method: 'GET' })
-		);
-	});
-
-	it('should destroy the model', async () => {
-		const mockResponse = { id: '123', name: 'New Item' };
-
-		fetchMock.mockResolvedValue({
-			ok: true,
-			status: 200,
-			json: async () => mockResponse
+			expect(result).toBe(false);
+			// Attribute should NOT have changed
+			expect(user.get('age')).toBe(age);
+			expect(user.validationError).toBeInstanceOf(ValidationError);
+			expect(user.validationError?.message).toBe('Must be an adult');
 		});
 
-		const model = new TestModel(mockResponse);
-		await model.destroy();
-
-		expect(fetchMock).toHaveBeenCalledWith(
-			expect.stringContaining('/123'),
-			expect.objectContaining({ method: 'DELETE' })
-		);
-	});
-
-	it('should handle 204 No Content for destroy()', async () => {
-		fetchMock.mockResolvedValue({
-			ok: true,
-			status: 204
+		it('should allow set() when validate is false even if data is invalid', () => {
+			const age = 15;
+			const user = new User({ email: 'testing@testing.tst' });
+			const result = user.set({ age });
+			expect(result).toBe(true);
+			expect(user.get('age')).toBe(age);
+			expect(user.validationError).toBeUndefined();
 		});
 
-		const model = new TestModel({ id: '123', name: 'Delete Me' });
-		await model.destroy();
+		it('should abort save() if validation fails', async () => {
+			const user = new User({ email: 'testing@testing.tst' });
+			user.set({ email: 'invalid' }); // Valid set (no validate flag)
 
-		expect(fetchMock).toHaveBeenCalledWith(
-			expect.stringContaining('/123'),
-			expect.objectContaining({ method: 'DELETE' })
-		);
+			// Mock sync to ensure it's never called
+			const syncSpy = vi.spyOn(user, 'sync');
+
+			const success = await user.save();
+
+			expect(success).toBe(false);
+			expect(syncSpy).not.toHaveBeenCalled();
+			expect(user.validationError).toBeInstanceOf(ValidationError);
+			expect(user.validationError?.message).toBe('Email must be valid');
+		});
+
+		it('should clear validationError on a subsequent valid set()', () => {
+			const user = new User({ email: 'testing@testing.tst' });
+			let result = user.set({ age: 10 }, { validate: true });
+			expect(result).toBe(false);
+			expect(user.validationError).toBeInstanceOf(ValidationError);
+			expect(user.validationError?.message).toBe('Must be an adult');
+
+			result = user.set({ age: 20 }, { validate: true });
+			expect(result).toBe(true);
+			expect(user.validationError).toBeUndefined();
+		});
+	});
+
+	describe('Persistence', () => {
+		it('should save a new document', async () => {
+			const mockResponse = { id: '123', name: 'New Item' };
+
+			// Use the typed mock reference instead of 'as any'
+			fetchMock.mockResolvedValue({
+				ok: true,
+				status: 201,
+				json: async () => mockResponse
+			});
+
+			const model = new TestModel({ name: mockResponse.name });
+			await model.save();
+
+			expect(fetchMock).toHaveBeenCalledWith(
+				'https://api.example.com/test',
+				expect.objectContaining({
+					method: 'POST',
+					body: JSON.stringify({ name: mockResponse.name })
+				})
+			);
+			expect(model.get('id')).toBe(mockResponse.id);
+		});
+
+		it('should updated the document', async () => {
+			const mockResponse = { id: '123', name: 'Updated Item' };
+
+			// Use the typed mock reference instead of 'as any'
+			fetchMock.mockResolvedValue({
+				ok: true,
+				status: 201,
+				json: async () => mockResponse
+			});
+
+			const model = new TestModel(mockResponse);
+			await model.save();
+
+			expect(fetchMock).toHaveBeenCalledWith(
+				`https://api.example.com/test/${mockResponse.id}`,
+				expect.objectContaining({
+					method: 'PUT',
+					body: JSON.stringify(mockResponse),
+					headers: {
+						'Content-Type': 'application/json'
+					}
+				})
+			);
+			expect(model.get('id')).toBe(mockResponse.id);
+		});
+
+		it('should retrieve the model', async () => {
+			const mockResponse = { id: '123', name: 'Some Item' };
+
+			fetchMock.mockResolvedValue({
+				ok: true,
+				status: 200,
+				json: async () => mockResponse
+			});
+
+			const model = new TestModel({ id: mockResponse.id });
+			await model.fetch();
+
+			expect(fetchMock).toHaveBeenCalledWith(
+				expect.stringContaining(mockResponse.id),
+				expect.objectContaining({ method: 'GET' })
+			);
+		});
+
+		it('should destroy the model', async () => {
+			const mockResponse = { id: '123', name: 'New Item' };
+
+			fetchMock.mockResolvedValue({
+				ok: true,
+				status: 200,
+				json: async () => mockResponse
+			});
+
+			const model = new TestModel(mockResponse);
+			await model.destroy();
+
+			expect(fetchMock).toHaveBeenCalledWith(
+				expect.stringContaining('/123'),
+				expect.objectContaining({ method: 'DELETE' })
+			);
+		});
+
+		it('should handle 204 No Content for destroy()', async () => {
+			fetchMock.mockResolvedValue({
+				ok: true,
+				status: 204
+			});
+
+			const model = new TestModel({ id: '123', name: 'Delete Me' });
+			await model.destroy();
+
+			expect(fetchMock).toHaveBeenCalledWith(
+				expect.stringContaining('/123'),
+				expect.objectContaining({ method: 'DELETE' })
+			);
+		});
 	});
 });

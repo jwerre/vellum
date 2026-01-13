@@ -1,4 +1,5 @@
 import { type VellumConfig, vellumConfig } from './config.svelte';
+import { ValidationError } from './errors/validation_error.js';
 import { escapeHTML } from './utils.js';
 
 export interface ModelOptions {
@@ -7,6 +8,12 @@ export interface ModelOptions {
 
 export interface SyncOptions extends Partial<VellumConfig> {
 	endpoint?: string;
+}
+
+export interface ValidationOptions {
+	validate?: boolean;
+	silent?: boolean;
+	[key: string]: unknown;
 }
 
 /**
@@ -111,6 +118,12 @@ export abstract class Model<T extends object> {
 	 */
 	abstract endpoint(): string;
 
+	/**
+	 * Validation error property that gets set when validation fails.
+	 * This property contains the error returned by the validate method.
+	 */
+	validationError: ValidationError | undefined = $state();
+
 	constructor(data: Partial<T> = {}, options: ModelOptions = {}) {
 		// Initialize model attributes with provided data, ensuring type safety
 		this.#attributes = { ...data } as T;
@@ -127,6 +140,23 @@ export abstract class Model<T extends object> {
 		}
 
 		return undefined;
+	}
+
+	#performValidation(attrs: Partial<T>, options?: ValidationOptions): boolean {
+		if (options?.silent || !this.validate || typeof this.validate !== 'function') {
+			this.validationError = undefined;
+			return true;
+		}
+
+		const errMsg = this.validate(attrs, options);
+		console.log(errMsg);
+		if (errMsg?.length > 0) {
+			this.validationError = new ValidationError(errMsg);
+			return false;
+		}
+
+		this.validationError = undefined;
+		return true;
 	}
 
 	/**
@@ -166,14 +196,25 @@ export abstract class Model<T extends object> {
 	 * shallow merge, meaning that only the top-level properties specified in the attrs
 	 * parameter will be updated, while other existing attributes remain unchanged.
 	 *
+	 * The method supports optional validation through the ValidationOptions parameter.
+	 * If validation is enabled and fails, the attributes will not be updated and the
+	 * method will return false. The validationError property will be set with details
+	 * about the validation failure.
+	 *
 	 * @overload
 	 * @param {K} key - The attribute key to set
 	 * @param {T[K]} value - The value to set for the specified key
-	 * @returns {void}
+	 * @param {ValidationOptions} [options] - Optional validation and behavior settings
+	 * @param {boolean} [options.validate] - If true, validates attributes before setting them
+	 * @param {boolean} [options.silent] - If true, suppresses validation error setting
+	 * @returns {boolean} True if attributes were set successfully, false if validation failed
 	 *
 	 * @overload
 	 * @param {Partial<T>} attrs - A partial object containing the attributes to update
-	 * @returns {void}
+	 * @param {ValidationOptions} [options] - Optional validation and behavior settings
+	 * @param {boolean} [options.validate] - If true, validates attributes before setting them
+	 * @param {boolean} [options.silent] - If true, suppresses validation error setting
+	 * @returns {boolean} True if attributes were set successfully, false if validation failed
 	 *
 	 * @example
 	 * // Set a single attribute
@@ -181,21 +222,40 @@ export abstract class Model<T extends object> {
 	 *
 	 * // Set multiple attributes
 	 * user.set({ name: 'Jane', email: 'jane@example.com' });
+	 *
+	 * // Set with validation enabled
+	 * const success = user.set({ email: 'invalid-email' }, { validate: true });
+	 * if (!success) {
+	 *   console.log('Validation failed:', user.validationError);
+	 * }
+	 *
+	 * // Set attributes silently without validation errors
+	 * user.set({ name: '' }, { validate: true, silent: true });
 	 */
-	set<K extends keyof T>(key: K, value: T[K]): void;
-	set(attrs: Partial<T>): void;
-	set<K extends keyof T>(keyOrAttrs: K | Partial<T>, value?: T[K]): void {
-		if (
-			typeof keyOrAttrs === 'string' ||
-			typeof keyOrAttrs === 'number' ||
-			typeof keyOrAttrs === 'symbol'
-		) {
-			if (value !== undefined) {
-				this.#attributes[keyOrAttrs as K] = value as T[K];
-			}
+	set<K extends keyof T>(key: K, value: T[K], options?: ValidationOptions): boolean;
+	set(attrs: Partial<T>, options?: ValidationOptions): boolean;
+	set<K extends keyof T>(
+		keyOrAttrs: K | Partial<T>,
+		valueOrOptions?: T[K] | ValidationOptions,
+		options?: ValidationOptions
+	): boolean {
+		let attrs: Partial<T> = {};
+		let opts: ValidationOptions | undefined;
+
+		if (typeof keyOrAttrs === 'object') {
+			attrs = keyOrAttrs;
+			opts = valueOrOptions as ValidationOptions;
 		} else {
-			Object.assign(this.#attributes, keyOrAttrs);
+			attrs[keyOrAttrs as K] = valueOrOptions as T[K];
+			opts = options;
 		}
+
+		if (opts?.validate && !this.#performValidation({ ...this.#attributes, ...attrs }, opts)) {
+			return false;
+		}
+
+		Object.assign(this.#attributes, attrs);
+		return true;
 	}
 
 	/**
@@ -256,6 +316,35 @@ export abstract class Model<T extends object> {
 	}
 
 	/**
+	 * Removes all attributes from the model, including the id attribute.
+	 *
+	 * This method completely clears the model instance by removing all stored attributes,
+	 * effectively resetting it to an empty state. After calling clear(), the model will
+	 * behave as if it were newly instantiated with no data. This includes removing the
+	 * ID attribute, which means the model will be considered "new" after clearing.
+	 *
+	 * This is useful when you want to reuse a model instance for different data or
+	 * reset a model to its initial state without creating a new instance.
+	 *
+	 * @returns {void}
+	 * @example
+	 * // Clear all data from a user model
+	 * const user = new User({ id: 1, name: 'John', email: 'john@example.com' });
+	 * user.clear();
+	 *
+	 * user.has('id');    // Returns false
+	 * user.has('name');  // Returns false
+	 * user.isNew();      // Returns true
+	 * user.toJSON();     // Returns {}
+	 *
+	 * // Model can be reused with new data
+	 * user.set({ name: 'Jane', email: 'jane@example.com' });
+	 */
+	clear(): void {
+		this.#attributes = {} as T;
+	}
+
+	/**
 	 * Retrieves and escapes the HTML content of a specific attribute from the model.
 	 *
 	 * This method provides a safe way to access model attributes that may contain
@@ -298,6 +387,77 @@ export abstract class Model<T extends object> {
 	 */
 	isNew(): boolean {
 		return !this.#getId();
+	}
+
+	/**
+	 * Validates the current model instance and returns whether it passes validation.
+	 *
+	 * This method performs validation on the model's current attributes using the
+	 * validate() method defined by the subclass. It's a convenience method that
+	 * allows you to check if a model is valid without having to manually call
+	 * the validation logic.
+	 *
+	 * If validation fails, the validationError property will be set with details
+	 * about what went wrong. If validation passes, validationError will be cleared.
+	 *
+	 * @param {ValidationOptions} [options] - Optional validation configuration
+	 * @param {boolean} [options.silent] - If true, suppresses validation error setting
+	 * @returns {boolean} True if the model passes validation, false otherwise
+	 *
+	 * @example
+	 * // Check if a user model is valid
+	 * const user = new User({ name: '', email: 'invalid-email' });
+	 *
+	 * if (!user.isValid()) {
+	 *   console.log('Validation failed:', user.validationError);
+	 *   // Handle validation errors
+	 * } else {
+	 *   // Proceed with saving or other operations
+	 *   await user.save();
+	 * }
+	 *
+	 * @example
+	 * // Validate silently without setting validationError
+	 * const isValid = user.isValid({ silent: true });
+	 * // user.validationError remains unchanged
+	 */
+	isValid(options?: ValidationOptions): boolean {
+		return this.#performValidation(this.#attributes, { ...options, validate: true });
+	}
+
+	/**
+	 * Validates the model's attributes using custom validation logic.
+	 *
+	 * This method is intended to be overridden by subclasses to implement custom
+	 * validation rules. By default, it returns undefined (no validation errors).
+	 * If validation fails, this method should return an error - either a simple
+	 * string message or a complete error object.
+	 *
+	 * The validate method is automatically called by save() before persisting data,
+	 * and can also be explicitly called by set() when the {validate: true} option
+	 * is passed. If validation fails, the save operation is aborted and model
+	 * attributes are not modified.
+	 *
+	 * @param {Partial<T>} attributes - The attributes to validate
+	 * @param {any} [options] - Additional options passed from set() or save()
+	 * @returns {any} Returns undefined if valid, or an error (string/object) if invalid
+	 *
+	 * @example
+	 * // Override in a User model subclass
+	 * validate(attributes: Partial<UserAttributes>) {
+	 *   if (!attributes.email) {
+	 *     return 'Email is required';
+	 *   }
+	 *   if (!attributes.email.includes('@')) {
+	 *     return { email: 'Invalid email format' };
+	 *   }
+	 *   // Return undefined if validation passes
+	 * }
+	 */
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	validate(attributes: Partial<T>, options?: ValidationOptions): string | undefined {
+		// Default implementation - no validation
+		return undefined;
 	}
 
 	/**
@@ -409,7 +569,13 @@ export abstract class Model<T extends object> {
 	 * generates additional fields (like timestamps, computed values, or normalized data)
 	 * during the save process.
 	 *
-	 * @returns {Promise<void>} A promise that resolves when the save operation completes
+	 * @param {ValidationOptions & SyncOptions} [options] - Optional configuration for save behavior
+	 * @param {boolean} [options.validate] - Whether to validate before saving (defaults to true)
+	 * @param {boolean} [options.silent] - If true, suppresses validation error setting
+	 * @param {string} [options.endpoint] - Override the default endpoint for this save operation
+	 * @param {Record<string, string>} [options.headers] - Additional headers to include in the request
+	 * @param {string} [options.origin] - Override the base URL origin for this request
+	 * @returns {Promise<boolean>} A promise that resolves to true if save succeeds, false if validation fails
 	 * @throws {Error} Throws an error if the HTTP request fails or server returns an error
 	 *
 	 * @example
@@ -420,14 +586,31 @@ export abstract class Model<T extends object> {
 	 * // Update an existing user
 	 * existingUser.set({ name: 'Jane' });
 	 * await existingUser.save(); // PUT request with updated data
+	 *
+	 * // Save without validation
+	 * await user.save({ validate: false });
+	 *
+	 * // Save with custom endpoint and headers
+	 * await user.save({
+	 *   endpoint: '/api/v2/users',
+	 *   headers: { 'Custom-Header': 'value' }
+	 * });
 	 */
-	async save(): Promise<void> {
+	async save(options?: ValidationOptions & SyncOptions): Promise<boolean> {
+		// Always validates before saving unless {validate: false}
+		if (options?.validate !== false && !this.#performValidation(this.#attributes, options)) {
+			return false;
+		}
+
 		const id = this.#getId();
 		const method = id ? 'PUT' : 'POST';
-		const data = await this.sync(method, this.toJSON());
+
+		const data = await this.sync(method, this.toJSON(), options);
 		if (data && typeof data === 'object') {
-			this.set(data as Partial<T>);
+			this.set(data as Partial<T>, { silent: true });
 		}
+
+		return true;
 	}
 
 	/**
