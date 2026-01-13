@@ -122,7 +122,7 @@ export abstract class Model<T extends object> {
 	 * Validation error property that gets set when validation fails.
 	 * This property contains the error returned by the validate method.
 	 */
-	validationError: ValidationError | undefined = $state();
+	#validationError: ValidationError | undefined = $state();
 
 	constructor(data: Partial<T> = {}, options: ModelOptions = {}) {
 		// Initialize model attributes with provided data, ensuring type safety
@@ -144,18 +144,18 @@ export abstract class Model<T extends object> {
 
 	#performValidation(attrs: Partial<T>, options?: ValidationOptions): boolean {
 		if (options?.silent || !this.validate || typeof this.validate !== 'function') {
-			this.validationError = undefined;
+			this.#validationError = undefined;
 			return true;
 		}
 
 		const errMsg = this.validate(attrs, options);
-		console.log(errMsg);
-		if (errMsg?.length > 0) {
-			this.validationError = new ValidationError(errMsg);
+		// console.log(errMsg);
+		if (errMsg && errMsg.length > 0) {
+			this.#validationError = new ValidationError(errMsg);
 			return false;
 		}
 
-		this.validationError = undefined;
+		this.#validationError = undefined;
 		return true;
 	}
 
@@ -166,6 +166,15 @@ export abstract class Model<T extends object> {
 	 */
 	get idAttribute(): string {
 		return this.#idAttribute;
+	}
+
+	/**
+	 * Gets the latest validation error.
+	 *
+	 * @returns {ValidationError || undefined} An instance of ValidationError if validation failed, otherwise undefined
+	 */
+	get validationError(): ValidationError | undefined {
+		return this.#validationError;
 	}
 
 	/**
