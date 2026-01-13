@@ -9,7 +9,8 @@ interface TestSchema {
 }
 
 class TestModel extends Model<TestSchema> {
-	endpoint() {
+	// idAttribute = '_id';
+	endpoint(): string {
 		return '/test';
 	}
 }
@@ -29,7 +30,7 @@ describe('Vellum Model', () => {
 
 	describe('Basics', () => {
 		it('should instantiate a model', async () => {
-			const data = { name: 'New Item' };
+			const data = { name: 'Pecos Bill' };
 			const model = new TestModel(data);
 			expect(model.get('name')).toBe(data.name);
 		});
@@ -64,6 +65,15 @@ describe('Vellum Model', () => {
 			expect(model.get('email')).toBe(data.email);
 		});
 
+		it('should clear the model', async () => {
+			const model = new TestModel({ id: '123', name: 'Some Item', email: 'test@example.com' });
+			model.clear();
+			expect(model.get('id')).toBeUndefined();
+			expect(model.get('name')).toBeUndefined();
+			expect(model.get('email')).toBeUndefined();
+			expect(model.toJSON()).toStrictEqual({});
+		});
+
 		it('should check if a model is new or not', async () => {
 			const data = { name: 'New model' };
 			const model = new TestModel(data);
@@ -78,12 +88,43 @@ describe('Vellum Model', () => {
 			expect(model.toJSON()).toStrictEqual(data);
 		});
 
-		it('should clear the model', async () => {
-			const data = { id: '123', name: 'Some Item' };
-			const model = new TestModel(data);
-			model.clear();
-			expect(model.get('id')).toBeUndefined();
-			expect(model.get('name')).toBeUndefined();
+		it('should apply an alternative id attribute', () => {
+			class User extends Model<{ _id?: string }> {
+				idAttribute = '_id';
+				endpoint() {
+					return '/users';
+				}
+			}
+
+			const user = new User();
+			expect(user.idAttribute).toBe('_id');
+			expect(user.isNew()).toBe(true);
+			user.set('_id', '6966b9497bac517184d7151');
+			expect(user.isNew()).toBe(false);
+		});
+
+		it('should apply default values', () => {
+			const values = {
+				name: 'New User',
+				email: 'test@example.com',
+				age: 18
+			};
+
+			class User extends Model<TestSchema> {
+				defaults() {
+					return values;
+				}
+
+				endpoint() {
+					return '/users';
+				}
+			}
+
+			const user = new User();
+			expect(user.get('name')).toBe(values.name);
+			expect(user.get('email')).toBe(values.email);
+			expect(user.get('age')).toBe(values.age);
+			expect(user.toJSON()).toStrictEqual(values);
 		});
 	});
 

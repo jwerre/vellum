@@ -2,9 +2,7 @@ import { type VellumConfig, vellumConfig } from './config.svelte';
 import { ValidationError } from './errors/validation_error.js';
 import { escapeHTML } from './utils.js';
 
-export interface ModelOptions {
-	idAttribute?: string;
-}
+// export interface ModelOptions {}
 
 export interface SyncOptions extends Partial<VellumConfig> {
 	endpoint?: string;
@@ -45,8 +43,11 @@ export interface ValidationOptions {
  * }
  *
  * class User extends Model<UserAttributes> {
- *   endpoint(): string {
+ *   endpoint() {
  *     return '/users';
+ *   }
+ *   defaults() {
+ *     return { name: '', createdAt: new Date() };
  *   }
  * }
  *
@@ -55,50 +56,16 @@ export interface ValidationOptions {
  * await user.save(); // Creates new user on server
  * user.set('name', 'Jane Doe');
  * await user.save(); // Updates existing user
- *
- * @example
- * // Using custom ID attribute (e.g., MongoDB _id)
- * interface MongoUserAttributes {
- *   _id?: string;
- *   username: string;
- *   profile: {
- *     firstName: string;
- *     lastName: string;
- *   };
- * }
- *
- * class MongoUser extends Model<MongoUserAttributes> {
- *   constructor(data?: Partial<MongoUserAttributes>) {
- *     super(data, { idAttribute: '_id' });
- *   }
- *
- *   endpoint(): string {
- *     return '/api/users';
- *   }
- * }
+ * await user.destroy(); // Deletes user
  */
 export abstract class Model<T extends object> {
 	#attributes = $state<T>({} as T);
 
 	/**
-	 * The name of the attribute that serves as the unique identifier for this model instance.
-	 *
-	 * This private field stores the attribute name that will be used to identify the model's
-	 * primary key when performing operations like determining if the model is new, constructing
-	 * URLs for API requests, and managing model identity. The default value is 'id', but it
-	 * can be customized through the ModelOptions parameter in the constructor.
-	 *
-	 * @private
-	 * @type {string}
-	 * @default 'id'
-	 * @example
-	 * // Default behavior uses 'id' as the identifier
-	 * const user = new User({ id: 1, name: 'John' });
-	 *
-	 * // Custom ID attribute can be specified in constructor options
-	 * const user = new User({ _id: '507f1f77bcf86cd799439011', name: 'John' }, { idAttribute: '_id' });
+	 * Validation error property that gets set when validation fails.
+	 * This property contains the error returned by the validate method.
 	 */
-	#idAttribute = 'id';
+	#validationError: ValidationError | undefined = $state();
 
 	/**
 	 * Abstract method that must be implemented by subclasses to define the base URL path
@@ -116,56 +83,40 @@ export abstract class Model<T extends object> {
 	 *   return '/users';
 	 * }
 	 */
-	abstract endpoint(): string;
+	protected abstract endpoint(): string;
 
 	/**
-	 * Validation error property that gets set when validation fails.
-	 * This property contains the error returned by the validate method.
-	 */
-	#validationError: ValidationError | undefined = $state();
-
-	constructor(data: Partial<T> = {}, options: ModelOptions = {}) {
-		// Initialize model attributes with provided data, ensuring type safety
-		this.#attributes = { ...data } as T;
-
-		// Set the ID attribute name, defaulting to 'id' if not specified in options
-		this.#idAttribute = options.idAttribute ?? 'id';
-	}
-
-	#getId(): string | number | undefined {
-		const id = this.#attributes[this.#idAttribute as keyof T];
-
-		if (typeof id === 'number' || (typeof id === 'string' && id.length > 0)) {
-			return id;
-		}
-
-		return undefined;
-	}
-
-	#performValidation(attrs: Partial<T>, options?: ValidationOptions): boolean {
-		if (options?.silent || !this.validate || typeof this.validate !== 'function') {
-			this.#validationError = undefined;
-			return true;
-		}
-
-		const errMsg = this.validate(attrs, options);
-		// console.log(errMsg);
-		if (errMsg && errMsg.length > 0) {
-			this.#validationError = new ValidationError(errMsg);
-			return false;
-		}
-
-		this.#validationError = undefined;
-		return true;
-	}
-
-	/**
-	 * Gets the current ID attribute name used by this model instance.
+	 * The name of the attribute that serves as the unique identifier for this model instance.
 	 *
-	 * @returns {string} The name of the attribute used as the ID field
+	 * This private field stores the attribute name that will be used to identify the model's
+	 * primary key when performing operations like determining if the model is new, constructing
+	 * URLs for API requests, and managing model identity. The default value is 'id', but it
+	 * can be customized through the ModelOptions parameter in the constructor.
+	 *
+	 * @protected
+	 * @type {string}
+	 * @default 'id'
+	 * @example
+	 * // Default behavior uses 'id' as the identifier
+	 * const user = new User({ id: 1, name: 'John' });
+	 *
+	 * // Custom ID attribute can be specified in constructor options
+	 *	class User extends Model<UserSchema> {
+	 *		idAttribute = '_id
+	 *		endpoint(): string {
+	 *			return '/users';
+	 *		}
+	 *	}
+	 * const user = new User({ _id: '507f1f77bcf86cd799439011', name: 'John' });
 	 */
-	get idAttribute(): string {
-		return this.#idAttribute;
+	protected idAttribute = 'id';
+
+	/**
+	 * Creates a new instance of Model.
+	 */
+	constructor(data: Partial<T> = {}) {
+		// Initialize model attributes with provided data, ensuring type safety
+		this.#attributes = { ...this.defaults(), ...data } as T;
 	}
 
 	/**
@@ -175,6 +126,40 @@ export abstract class Model<T extends object> {
 	 */
 	get validationError(): ValidationError | undefined {
 		return this.#validationError;
+	}
+
+	/**
+	 * Provides default attribute values for new model instances.
+	 *
+	 * This method is called during model construction to establish initial attribute
+	 * values before applying any user-provided data. Subclasses can override this
+	 * method to define default values for their specific attributes, ensuring that
+	 * models always have sensible initial state.
+	 *
+	 * The defaults are applied first, then any data passed to the constructor will
+	 * override these default values. This allows for flexible model initialization
+	 * where some attributes have fallback values while others can be explicitly set.
+	 *
+	 * @protected
+	 * @returns {Partial<T>} A partial object containing default attribute values
+	 *
+	 * @example
+	 * // Override in a User model subclass
+	 * protected defaults(): Partial<UserAttributes> {
+	 *   return {
+	 *     role: 'user',
+	 *     isActive: true,
+	 *     createdAt: new Date()
+	 *   };
+	 * }
+	 *
+	 * @example
+	 * // Creating a model with defaults
+	 * const user = new User({ name: 'John' });
+	 * // Resulting attributes: { role: 'user', isActive: true, createdAt: Date, name: 'John' }
+	 */
+	protected defaults(): Partial<T> {
+		return {};
 	}
 
 	/**
@@ -259,7 +244,7 @@ export abstract class Model<T extends object> {
 			opts = options;
 		}
 
-		if (opts?.validate && !this.#performValidation({ ...this.#attributes, ...attrs }, opts)) {
+		if (opts?.validate && !this.#doValidation({ ...this.#attributes, ...attrs }, opts)) {
 			return false;
 		}
 
@@ -431,7 +416,7 @@ export abstract class Model<T extends object> {
 	 * // user.validationError remains unchanged
 	 */
 	isValid(options?: ValidationOptions): boolean {
-		return this.#performValidation(this.#attributes, { ...options, validate: true });
+		return this.#doValidation(this.#attributes, { ...options, validate: true });
 	}
 
 	/**
@@ -607,7 +592,7 @@ export abstract class Model<T extends object> {
 	 */
 	async save(options?: ValidationOptions & SyncOptions): Promise<boolean> {
 		// Always validates before saving unless {validate: false}
-		if (options?.validate !== false && !this.#performValidation(this.#attributes, options)) {
+		if (options?.validate !== false && !this.#doValidation(this.#attributes, options)) {
 			return false;
 		}
 
@@ -678,5 +663,34 @@ export abstract class Model<T extends object> {
 	 */
 	toJSON(): T {
 		return { ...this.#attributes };
+	}
+
+	// --------------- PRIVATE METHODS --------------- //
+
+	#getId(): string | number | undefined {
+		const id = this.#attributes[this.idAttribute as keyof T];
+
+		if (typeof id === 'number' || (typeof id === 'string' && id.length > 0)) {
+			return id;
+		}
+
+		return undefined;
+	}
+
+	#doValidation(attrs: Partial<T>, options?: ValidationOptions): boolean {
+		if (options?.silent || !this.validate || typeof this.validate !== 'function') {
+			this.#validationError = undefined;
+			return true;
+		}
+
+		const errMsg = this.validate(attrs, options);
+		// console.log(errMsg);
+		if (errMsg && errMsg.length > 0) {
+			this.#validationError = new ValidationError(errMsg);
+			return false;
+		}
+
+		this.#validationError = undefined;
+		return true;
 	}
 }
