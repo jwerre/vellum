@@ -1,6 +1,7 @@
 export interface VellumConfig {
 	origin: string;
 	headers: Record<string, string>;
+	idAttribute: string;
 }
 
 /**
@@ -9,12 +10,14 @@ export interface VellumConfig {
  *
  * @default origin - Empty string (must be configured before use)
  * @default headers - Contains 'Content-Type': 'application/json'
+ * @default idAttribute - The default unique identifier attribute for models
  */
 export const vellumConfig = $state<VellumConfig>({
 	origin: '',
 	headers: {
 		'Content-Type': 'application/json'
-	}
+	},
+	idAttribute: 'id'
 });
 
 /**
@@ -27,6 +30,7 @@ export const vellumConfig = $state<VellumConfig>({
  * @param {Partial<VellumConfig>} config - Partial configuration object with properties to update
  * @param {string} [config.origin] - New origin URL to set
  * @param {Record<string, string>} [config.headers] - Headers to merge with existing headers
+ * @param {string} [config.idAttribute="id"] - The default unique identifier attribute for models
  *
  * @example
  * // Set the API origin
@@ -47,7 +51,14 @@ export const vellumConfig = $state<VellumConfig>({
  * });
  */
 export const configureVellum = (config: Partial<VellumConfig>) => {
-	if (config.origin) vellumConfig.origin = config.origin;
+	if (config.origin?.length) {
+		vellumConfig.origin = config.origin;
+	}
+
+	if (config.idAttribute?.length) {
+		vellumConfig.idAttribute = config.idAttribute;
+	}
+
 	if (config.headers) {
 		vellumConfig.headers = { ...vellumConfig.headers, ...config.headers };
 	}

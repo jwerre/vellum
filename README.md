@@ -178,12 +178,10 @@ Vellum works seamlessly with Svelte 5 components.
 
 There is a working example of Vellum in the `routes` directory. To run it, clone the repository, install dependencies, and run the development server:
 
-```
-git clone https://github.com/jwerre/vellum.git
-cd vellum
-npm install
-npm run dev
-```
+    git clone https://github.com/jwerre/vellum.git
+    cd vellum
+    npm install
+    npm run dev
 
 ## API Documentation
 
@@ -198,58 +196,62 @@ npm run dev
 - [Model](#model)
   - [Parameters](#parameters-1)
   - [Examples](#examples-1)
-  - [validationError](#validationerror)
   - [idAttribute](#idattribute)
+    - [Examples](#examples-2)
+  - [validationError](#validationerror)
+  - [defaults](#defaults)
+    - [Examples](#examples-3)
   - [get](#get)
     - [Parameters](#parameters-2)
-    - [Examples](#examples-2)
+    - [Examples](#examples-4)
   - [has](#has)
     - [Parameters](#parameters-3)
-    - [Examples](#examples-3)
+    - [Examples](#examples-5)
   - [unset](#unset)
     - [Parameters](#parameters-4)
-    - [Examples](#examples-4)
+    - [Examples](#examples-6)
   - [clear](#clear)
-    - [Examples](#examples-5)
+    - [Examples](#examples-7)
   - [escape](#escape)
     - [Parameters](#parameters-5)
-    - [Examples](#examples-6)
+    - [Examples](#examples-8)
   - [isNew](#isnew)
   - [isValid](#isvalid)
     - [Parameters](#parameters-6)
-    - [Examples](#examples-7)
+    - [Examples](#examples-9)
   - [validate](#validate)
     - [Parameters](#parameters-7)
-    - [Examples](#examples-8)
+    - [Examples](#examples-10)
   - [sync](#sync)
     - [Parameters](#parameters-8)
-    - [Examples](#examples-9)
+    - [Examples](#examples-11)
   - [fetch](#fetch)
-    - [Examples](#examples-10)
+    - [Examples](#examples-12)
   - [save](#save)
     - [Parameters](#parameters-9)
-    - [Examples](#examples-11)
-  - [destroy](#destroy)
-    - [Examples](#examples-12)
-  - [toJSON](#tojson)
     - [Examples](#examples-13)
+  - [destroy](#destroy)
+    - [Examples](#examples-14)
+  - [toJSON](#tojson)
+    - [Examples](#examples-15)
+- [validationError](#validationerror-1)
 - [Collection](#collection)
   - [Parameters](#parameters-10)
-  - [Examples](#examples-14)
+  - [Examples](#examples-16)
   - [items](#items)
   - [length](#length)
   - [add](#add)
     - [Parameters](#parameters-11)
-    - [Examples](#examples-15)
+    - [Examples](#examples-17)
   - [reset](#reset)
     - [Parameters](#parameters-12)
-    - [Examples](#examples-16)
+    - [Examples](#examples-18)
   - [find](#find)
     - [Parameters](#parameters-13)
-    - [Examples](#examples-17)
+    - [Examples](#examples-19)
   - [fetch](#fetch-1)
     - [Parameters](#parameters-14)
-    - [Examples](#examples-18)
+    - [Examples](#examples-20)
 
 ### vellumConfig
 
@@ -269,6 +271,7 @@ with existing headers rather than replaced entirely.
 - `config` **Partial\<VellumConfig>** Partial configuration object with properties to update
   - `config.origin` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)?** New origin URL to set
   - `config.headers` **Record<[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String), [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)>?** Headers to merge with existing headers
+  - `config.idAttribute` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** The default unique identifier attribute for models (optional, default `"id"`)
 
 #### Examples
 
@@ -312,7 +315,6 @@ Key features:
 #### Parameters
 
 - `data` (optional, default `{}`)
-- `options` (optional, default `{}`)
 
 #### Examples
 
@@ -326,8 +328,11 @@ interface UserAttributes {
 }
 
 class User extends Model<UserAttributes> {
-  endpoint(): string {
+  endpoint() {
     return '/users';
+  }
+  defaults() {
+    return { name: '', createdAt: new Date() };
   }
 }
 
@@ -336,40 +341,73 @@ const user = new User({ name: 'John Doe', email: 'john@example.com' });
 await user.save(); // Creates new user on server
 user.set('name', 'Jane Doe');
 await user.save(); // Updates existing user
+await user.destroy(); // Deletes user
 ```
 
+#### idAttribute
+
+The name of the attribute that serves as the unique identifier for this model instance.
+
+This private field stores the attribute name that will be used to identify the model's
+primary key when performing operations like determining if the model is new, constructing
+URLs for API requests, and managing model identity. The default value is 'id', but it
+can be customized through the ModelOptions parameter in the constructor.
+
+Type: [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)
+
+##### Examples
+
 ```javascript
-// Using custom ID attribute (e.g., MongoDB _id)
-interface MongoUserAttributes {
-  _id?: string;
-  username: string;
-  profile: {
-    firstName: string;
-    lastName: string;
-  };
-}
+// Default behavior uses 'id' as the identifier
+const user = new User({ id: 1, name: 'John' });
 
-class MongoUser extends Model<MongoUserAttributes> {
-  constructor(data?: Partial<MongoUserAttributes>) {
-    super(data, { idAttribute: '_id' });
-  }
-
-  endpoint(): string {
-    return '/api/users';
-  }
+// Custom ID attribute can be specified in constructor options
+class User extends Model<UserSchema> {
+	idAttribute = '_id
+	endpoint(): string {
+		return '/users';
+	}
 }
+const user = new User({ _id: '507f1f77bcf86cd799439011', name: 'John' });
 ```
 
 #### validationError
 
-Validation error property that gets set when validation fails.
-This property contains the error returned by the validate method.
+Gets the latest validation error.
 
-#### idAttribute
+#### defaults
 
-Gets the current ID attribute name used by this model instance.
+Provides default attribute values for new model instances.
 
-Returns **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** The name of the attribute used as the ID field
+This method is called during model construction to establish initial attribute
+values before applying any user-provided data. Subclasses can override this
+method to define default values for their specific attributes, ensuring that
+models always have sensible initial state.
+
+The defaults are applied first, then any data passed to the constructor will
+override these default values. This allows for flexible model initialization
+where some attributes have fallback values while others can be explicitly set.
+
+##### Examples
+
+```javascript
+// Override in a User model subclass
+protected defaults(): Partial<UserAttributes> {
+  return {
+    role: 'user',
+    isActive: true,
+    createdAt: new Date()
+  };
+}
+```
+
+```javascript
+// Creating a model with defaults
+const user = new User({ name: 'John' });
+// Resulting attributes: { role: 'user', isActive: true, createdAt: Date, name: 'John' }
+```
+
+Returns **Partial\<T>** A partial object containing default attribute values
 
 #### get
 
@@ -765,6 +803,11 @@ const jsonString = JSON.stringify(user.toJSON());
 ```
 
 Returns **T** A plain object containing all of the model's attributes
+
+### validationError
+
+Validation error property that gets set when validation fails.
+This property contains the error returned by the validate method.
 
 ### Collection
 

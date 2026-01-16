@@ -109,7 +109,7 @@ export abstract class Model<T extends object> {
 	 *	}
 	 * const user = new User({ _id: '507f1f77bcf86cd799439011', name: 'John' });
 	 */
-	protected idAttribute = 'id';
+	protected idAttribute = vellumConfig.idAttribute;
 
 	/**
 	 * Creates a new instance of Model.

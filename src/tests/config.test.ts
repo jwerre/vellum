@@ -6,6 +6,7 @@ describe('Vellum Configuration', () => {
 		// Reset global state before each test
 		vellumConfig.origin = '';
 		vellumConfig.headers = { 'Content-Type': 'application/json' };
+		vellumConfig.idAttribute = 'id';
 	});
 
 	it('should initialize with default values', () => {
@@ -13,6 +14,7 @@ describe('Vellum Configuration', () => {
 		expect(vellumConfig.headers).toEqual({
 			'Content-Type': 'application/json'
 		});
+		expect(vellumConfig.idAttribute).toBe('id');
 	});
 
 	it('should update the origin via configureVellum', () => {
@@ -44,5 +46,32 @@ describe('Vellum Configuration', () => {
 		configureVellum({});
 		expect(vellumConfig.origin).toBe('');
 		expect(Object.keys(vellumConfig.headers)).toHaveLength(1);
+		expect(vellumConfig.idAttribute).toBe('id');
+	});
+
+	it('should update the idAttribute via configureVellum', () => {
+		const idAttribute = 'data-id';
+		configureVellum({ idAttribute });
+		expect(vellumConfig.idAttribute).toBe(idAttribute);
+	});
+
+	it('should not allow setting idAttribute to undefined', () => {
+		configureVellum({ idAttribute: undefined });
+		expect(vellumConfig.idAttribute).toBe('id');
+	});
+
+	it('should update multiple properties at once including idAttribute', () => {
+		configureVellum({
+			origin: 'https://api.example.com',
+			headers: { Authorization: 'Bearer token-456' },
+			idAttribute: 'custom-id'
+		});
+
+		expect(vellumConfig.origin).toBe('https://api.example.com');
+		expect(vellumConfig.headers).toEqual({
+			'Content-Type': 'application/json',
+			Authorization: 'Bearer token-456'
+		});
+		expect(vellumConfig.idAttribute).toBe('custom-id');
 	});
 });

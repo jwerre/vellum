@@ -2,14 +2,13 @@ import { type Mock, describe, it, expect, vi, beforeEach } from 'vitest';
 import { configureVellum, Model, ValidationError } from '../lib/index.js';
 
 interface TestSchema {
-	id?: string;
+	_id?: string;
 	name: string;
 	email?: string;
 	age?: number;
 }
 
 class TestModel extends Model<TestSchema> {
-	// idAttribute = '_id';
 	endpoint(): string {
 		return '/test';
 	}
@@ -24,7 +23,8 @@ describe('Vellum Model', () => {
 		global.fetch = fetchMock;
 
 		configureVellum({
-			origin: 'https://api.example.com'
+			origin: 'https://api.example.com',
+			idAttribute: '_id'
 		});
 	});
 
@@ -66,9 +66,9 @@ describe('Vellum Model', () => {
 		});
 
 		it('should clear the model', async () => {
-			const model = new TestModel({ id: '123', name: 'Some Item', email: 'test@example.com' });
+			const model = new TestModel({ _id: '123', name: 'Some Item', email: 'test@example.com' });
 			model.clear();
-			expect(model.get('id')).toBeUndefined();
+			expect(model.get('_id')).toBeUndefined();
 			expect(model.get('name')).toBeUndefined();
 			expect(model.get('email')).toBeUndefined();
 			expect(model.toJSON()).toStrictEqual({});
@@ -78,28 +78,28 @@ describe('Vellum Model', () => {
 			const data = { name: 'New model' };
 			const model = new TestModel(data);
 			expect(model.isNew()).toBe(true);
-			model.set('id', '123');
+			model.set('_id', '123');
 			expect(model.isNew()).toBe(false);
 		});
 
 		it('should parse model attributes', async () => {
-			const data = { id: '123', name: 'Some Item' };
+			const data = { _id: '123', name: 'Some Item' };
 			const model = new TestModel(data);
 			expect(model.toJSON()).toStrictEqual(data);
 		});
 
 		it('should apply an alternative id attribute', () => {
-			class User extends Model<{ _id?: string }> {
-				idAttribute = '_id';
+			class User extends Model<{ uniqueid?: string }> {
+				idAttribute = 'uniqueid';
 				endpoint() {
 					return '/users';
 				}
 			}
 
 			const user = new User();
-			expect(user.idAttribute).toBe('_id');
+			expect(user.idAttribute).toBe('uniqueid');
 			expect(user.isNew()).toBe(true);
-			user.set('_id', '6966b9497bac517184d7151');
+			user.set('uniqueid', '6966b9497bac517184d7151');
 			expect(user.isNew()).toBe(false);
 		});
 
@@ -206,7 +206,7 @@ describe('Vellum Model', () => {
 
 	describe('Persistence', () => {
 		it('should save a new document', async () => {
-			const mockResponse = { id: '123', name: 'New Item' };
+			const mockResponse = { _id: '123', name: 'New Item' };
 
 			// Use the typed mock reference instead of 'as any'
 			fetchMock.mockResolvedValue({
@@ -225,11 +225,11 @@ describe('Vellum Model', () => {
 					body: JSON.stringify({ name: mockResponse.name })
 				})
 			);
-			expect(model.get('id')).toBe(mockResponse.id);
+			expect(model.get('_id')).toBe(mockResponse._id);
 		});
 
 		it('should updated the document', async () => {
-			const mockResponse = { id: '123', name: 'Updated Item' };
+			const mockResponse = { _id: '123', name: 'Updated Item' };
 
 			// Use the typed mock reference instead of 'as any'
 			fetchMock.mockResolvedValue({
@@ -242,7 +242,7 @@ describe('Vellum Model', () => {
 			await model.save();
 
 			expect(fetchMock).toHaveBeenCalledWith(
-				`https://api.example.com/test/${mockResponse.id}`,
+				`https://api.example.com/test/${mockResponse._id}`,
 				expect.objectContaining({
 					method: 'PUT',
 					body: JSON.stringify(mockResponse),
@@ -251,11 +251,11 @@ describe('Vellum Model', () => {
 					}
 				})
 			);
-			expect(model.get('id')).toBe(mockResponse.id);
+			expect(model.get('_id')).toBe(mockResponse._id);
 		});
 
 		it('should retrieve the model', async () => {
-			const mockResponse = { id: '123', name: 'Some Item' };
+			const mockResponse = { _id: '123', name: 'Some Item' };
 
 			fetchMock.mockResolvedValue({
 				ok: true,
@@ -263,17 +263,17 @@ describe('Vellum Model', () => {
 				json: async () => mockResponse
 			});
 
-			const model = new TestModel({ id: mockResponse.id });
+			const model = new TestModel({ _id: mockResponse._id });
 			await model.fetch();
 
 			expect(fetchMock).toHaveBeenCalledWith(
-				expect.stringContaining(mockResponse.id),
+				expect.stringContaining(mockResponse._id),
 				expect.objectContaining({ method: 'GET' })
 			);
 		});
 
 		it('should destroy the model', async () => {
-			const mockResponse = { id: '123', name: 'New Item' };
+			const mockResponse = { _id: '123', name: 'New Item' };
 
 			fetchMock.mockResolvedValue({
 				ok: true,
@@ -296,7 +296,7 @@ describe('Vellum Model', () => {
 				status: 204
 			});
 
-			const model = new TestModel({ id: '123', name: 'Delete Me' });
+			const model = new TestModel({ _id: '123', name: 'Delete Me' });
 			await model.destroy();
 
 			expect(fetchMock).toHaveBeenCalledWith(
