@@ -38,6 +38,47 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	abstract endpoint(): string;
 
 	/**
+	 * Optional comparator for sorting the collection.
+	 *
+	 * By default, there is no comparator for a collection. If you define a comparator,
+	 * it will be used to sort the collection any time a model is added.
+	 *
+	 * A comparator can be defined in three ways:
+	 *
+	 * 1. **sortBy** - Pass a function that takes a single model argument and returns
+	 *    a numeric or string value by which the model should be ordered relative to others.
+	 *
+	 * 2. **sort** - Pass a comparator function that takes two model arguments and returns
+	 *    -1 if the first model should come before the second, 0 if they are of the same
+	 *    rank, and 1 if the first model should come after.
+	 *
+	 * 3. **attribute name** - Pass a string indicating the attribute to sort by.
+	 *
+	 * Note: The implementation depends on the arity of your comparator function to
+	 * determine between sortBy (1 argument) and sort (2 arguments) styles, so be
+	 * careful if your comparator function is bound.
+	 *
+	 * @returns A comparator function, string attribute name, or undefined for no sorting
+	 *
+	 * @example
+	 * // Sort by attribute name
+	 * comparator = () => 'createdAt';
+	 *
+	 * @example
+	 * // Sort using sortBy (single argument)
+	 * comparator = () => (model: UserModel) => model.get('age');
+	 *
+	 * @example
+	 * // Sort using sort comparator (two arguments)
+	 * comparator = () => (a: UserModel, b: UserModel) => {
+	 *   if (a.get('priority') < b.get('priority')) return -1;
+	 *   if (a.get('priority') > b.get('priority')) return 1;
+	 *   return 0;
+	 * };
+	 */
+	comparator?(): string | ((model: M) => string | number) | ((a: M, b: M) => number) | undefined;
+
+	/**
 	 * Creates a new Collection instance.
 	 *
 	 * @param models - Optional array of data objects to initialize the collection with
@@ -80,7 +121,53 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	add(data: T | M): M {
 		const instance = data instanceof Model ? (data as M) : new this.model(data as Partial<T>);
 		this.items.push(instance);
+		this.sort();
 		return instance;
+	}
+
+	/**
+	 * Sorts the collection using the comparator if one is defined.
+	 * Called automatically when items are added to the collection.
+	 */
+	private sort(): void {
+		if (!this.comparator) {
+			return;
+		}
+
+		const comparator = this.comparator();
+		if (!comparator) {
+			return;
+		}
+
+		// String attribute name
+		if (typeof comparator === 'string') {
+			const attr = comparator as keyof T;
+			this.items.sort((a, b) => {
+				const aVal = a.get(attr);
+				const bVal = b.get(attr);
+				if (aVal < bVal) return -1;
+				if (aVal > bVal) return 1;
+				return 0;
+			});
+			return;
+		}
+
+		// Function comparator - check arity
+		if (comparator.length === 1) {
+			// sortBy function (single argument)
+			const sortByFn = comparator as (model: M) => string | number;
+			this.items.sort((a, b) => {
+				const aVal = sortByFn(a);
+				const bVal = sortByFn(b);
+				if (aVal < bVal) return -1;
+				if (aVal > bVal) return 1;
+				return 0;
+			});
+		} else {
+			// sort function (two arguments)
+			const sortFn = comparator as (a: M, b: M) => number;
+			this.items.sort(sortFn);
+		}
 	}
 
 	/**
@@ -97,6 +184,7 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	 */
 	reset(data: T[]): void {
 		this.items = data.map((attrs) => new this.model(attrs as Partial<T>));
+		this.sort();
 	}
 
 	/**

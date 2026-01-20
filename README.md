@@ -243,6 +243,7 @@ There is a working example of Vellum in the `routes` directory. To run it, clone
   - [add](#add)
     - [Parameters](#parameters-11)
     - [Examples](#examples-17)
+  - [sort](#sort)
   - [reset](#reset)
     - [Parameters](#parameters-12)
     - [Examples](#examples-18)
@@ -862,6 +863,11 @@ collection.add(existingUser);
 ```
 
 Returns **any** The model instance that was added to the collection
+
+#### sort
+
+Sorts the collection using the comparator if one is defined.
+Called automatically when items are added to the collection.
 
 #### reset
 
