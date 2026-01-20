@@ -128,6 +128,153 @@ describe('Vellum Model', () => {
 		});
 	});
 
+	describe('Change Tracking', () => {
+		it('should track changed attributes after set()', () => {
+			const model = new TestModel({ name: 'John', email: 'john@example.com' });
+
+			model.set('name', 'Jane');
+
+			expect(model.changed).toEqual({ name: 'Jane' });
+			expect(model.hasChanged()).toBe(true);
+			expect(model.hasChanged('name')).toBe(true);
+			expect(model.hasChanged('email')).toBe(false);
+		});
+
+		it('should track previous values before change', () => {
+			const model = new TestModel({ name: 'John', email: 'john@example.com', age: 25 });
+
+			model.set('name', 'Jane');
+
+			expect(model.previous).toEqual({ name: 'John' });
+			expect(model.changed).toEqual({ name: 'Jane' });
+		});
+
+		it('should track multiple changed attributes', () => {
+			const model = new TestModel({ name: 'John', email: 'john@example.com', age: 25 });
+
+			model.set({ name: 'Jane', age: 30 });
+
+			expect(model.changed).toEqual({ name: 'Jane', age: 30 });
+			expect(model.previous).toEqual({ name: 'John', age: 25 });
+			expect(model.hasChanged()).toBe(true);
+			expect(model.hasChanged('name')).toBe(true);
+			expect(model.hasChanged('age')).toBe(true);
+			expect(model.hasChanged('email')).toBe(false);
+		});
+
+		it('should reset changed and previous on each set() call', () => {
+			const model = new TestModel({ name: 'John', email: 'john@example.com', age: 25 });
+
+			// First set
+			model.set('name', 'Jane');
+			expect(model.changed).toEqual({ name: 'Jane' });
+			expect(model.previous).toEqual({ name: 'John' });
+
+			// Second set - should reset changed and previous
+			model.set('email', 'jane@example.com');
+			expect(model.changed).toEqual({ email: 'jane@example.com' });
+			expect(model.previous).toEqual({ email: 'john@example.com' });
+			expect(model.hasChanged('name')).toBe(false);
+			expect(model.hasChanged('email')).toBe(true);
+		});
+
+		it('should handle setting new attributes that did not exist before', () => {
+			const model = new TestModel({ name: 'John' });
+
+			model.set('email', 'john@example.com');
+
+			expect(model.changed).toEqual({ email: 'john@example.com' });
+			expect(model.previous).toEqual({});
+			expect(model.hasChanged('email')).toBe(true);
+		});
+
+		it('should return false for hasChanged() when no changes made', () => {
+			const model = new TestModel({ name: 'John', email: 'john@example.com' });
+
+			expect(model.hasChanged()).toBe(false);
+			expect(model.hasChanged('name')).toBe(false);
+			expect(model.hasChanged('email')).toBe(false);
+			expect(model.changed).toEqual({});
+			expect(model.previous).toEqual({});
+		});
+
+		it('should track changes correctly with single attribute set syntax', () => {
+			const model = new TestModel({ name: 'John', email: 'john@example.com', age: 25 });
+
+			model.set('age', 30);
+
+			expect(model.changed).toEqual({ age: 30 });
+			expect(model.previous).toEqual({ age: 25 });
+			expect(model.hasChanged('age')).toBe(true);
+			expect(model.hasChanged('name')).toBe(false);
+		});
+
+		it('should handle validation failure without updating changed/previous', () => {
+			class User extends Model<TestSchema> {
+				endpoint() {
+					return '/users';
+				}
+
+				validate(attr: Partial<TestSchema>) {
+					if (attr.age && attr.age < 18) {
+						return 'Must be an adult';
+					}
+				}
+			}
+
+			const user = new User({ email: 'test@example.com', age: 25 });
+
+			// Try to set invalid age with validation
+			const result = user.set({ age: 15 }, { validate: true });
+
+			expect(result).toBe(false);
+			expect(user.hasChanged()).toBe(false);
+			expect(user.changed).toEqual({});
+			expect(user.previous).toEqual({});
+			expect(user.get('age')).toBe(25); // Age should not have changed
+		});
+
+		it('should track changes when setting the same attribute to a different value', () => {
+			const model = new TestModel({ name: 'John' });
+
+			model.set('name', 'Jane');
+			expect(model.changed).toEqual({ name: 'Jane' });
+			expect(model.previous).toEqual({ name: 'John' });
+
+			model.set('name', 'Bob');
+			expect(model.changed).toEqual({ name: 'Bob' });
+			expect(model.previous).toEqual({ name: 'Jane' });
+		});
+
+		it('should handle empty object set without changing anything', () => {
+			const model = new TestModel({ name: 'John', email: 'john@example.com' });
+
+			model.set({});
+
+			expect(model.changed).toEqual({});
+			expect(model.previous).toEqual({});
+			expect(model.hasChanged()).toBe(false);
+		});
+
+		it('should provide access to changed/previous objects', () => {
+			const model = new TestModel({ name: 'John', email: 'john@example.com' });
+
+			model.set('name', 'Jane');
+
+			const changed = model.changed;
+			const previous = model.previous;
+
+			// Verify getters return the expected values
+			expect(changed).toEqual({ name: 'Jane' });
+			expect(previous).toEqual({ name: 'John' });
+
+			// New set call should update both
+			model.set('email', 'jane@example.com');
+			expect(model.changed).toEqual({ email: 'jane@example.com' });
+			expect(model.previous).toEqual({ email: 'john@example.com' });
+		});
+	});
+
 	describe('Validation', () => {
 		class User extends Model<TestSchema> {
 			endpoint() {
@@ -208,7 +355,6 @@ describe('Vellum Model', () => {
 		it('should save a new document', async () => {
 			const mockResponse = { _id: '123', name: 'New Item' };
 
-			// Use the typed mock reference instead of 'as any'
 			fetchMock.mockResolvedValue({
 				ok: true,
 				status: 201,
@@ -231,7 +377,6 @@ describe('Vellum Model', () => {
 		it('should updated the document', async () => {
 			const mockResponse = { _id: '123', name: 'Updated Item' };
 
-			// Use the typed mock reference instead of 'as any'
 			fetchMock.mockResolvedValue({
 				ok: true,
 				status: 201,

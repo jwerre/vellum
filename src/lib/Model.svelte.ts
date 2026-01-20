@@ -68,6 +68,18 @@ export abstract class Model<T extends object> {
 	#validationError: ValidationError | undefined = $state();
 
 	/**
+	 * Internal hash containing all attributes that have changed since the last set call.
+	 * This property tracks which attributes have been modified and their new values.
+	 */
+	#changed: Partial<T> = {};
+
+	/**
+	 * Internal hash containing the previous values of attributes before they were changed.
+	 * This property stores the original values of attributes from before the last set call.
+	 */
+	#previous: Partial<T> = {};
+
+	/**
 	 * Abstract method that must be implemented by subclasses to define the base URL path
 	 * for API endpoints related to this model.
 	 *
@@ -126,6 +138,56 @@ export abstract class Model<T extends object> {
 	 */
 	get validationError(): ValidationError | undefined {
 		return this.#validationError;
+	}
+
+	/**
+	 * Gets the hash of attributes that have changed since the last set call.
+	 * This is a readonly accessor - the changed object cannot be modified directly.
+	 *
+	 * @returns {Partial<T>} An object containing all attributes that have changed
+	 */
+	get changed(): Partial<T> {
+		return this.#changed;
+	}
+
+	/**
+	 * Gets the hash of previous attribute values before they were changed.
+	 * This is a readonly accessor - the previous object cannot be modified directly.
+	 *
+	 * @returns {Partial<T>} An object containing the previous values of changed attributes
+	 */
+	get previous(): Partial<T> {
+		return this.#previous;
+	}
+
+	/**
+	 * Determines if attributes have changed since the last set call.
+	 *
+	 * This method checks whether any attributes were modified in the most recent
+	 * set operation. When called without arguments, it returns true if any attributes
+	 * have changed. When called with a specific attribute key, it returns true only
+	 * if that particular attribute was changed.
+	 *
+	 * @param {keyof T} [attr] - Optional attribute key to check for changes
+	 * @returns {boolean} True if attributes have changed, false otherwise
+	 *
+	 * @example
+	 * // Check if any attributes changed
+	 * const user = new User({ name: 'John', email: 'john@example.com' });
+	 * user.set('name', 'Jane');
+	 * user.hasChanged(); // Returns true
+	 *
+	 * @example
+	 * // Check if a specific attribute changed
+	 * user.set('name', 'Jane');
+	 * user.hasChanged('name'); // Returns true
+	 * user.hasChanged('email'); // Returns false
+	 */
+	hasChanged(attr?: keyof T): boolean {
+		if (attr !== undefined) {
+			return attr in this.#changed;
+		}
+		return Object.keys(this.#changed).length > 0;
 	}
 
 	/**
@@ -247,6 +309,15 @@ export abstract class Model<T extends object> {
 		if (opts?.validate && !this.#doValidation({ ...this.#attributes, ...attrs }, opts)) {
 			return false;
 		}
+
+		// Store previous values and record new changes
+		this.#previous = {};
+		for (const key in attrs) {
+			if (key in this.#attributes) {
+				this.#previous[key] = this.#attributes[key];
+			}
+		}
+		this.#changed = attrs;
 
 		Object.assign(this.#attributes, attrs);
 		return true;

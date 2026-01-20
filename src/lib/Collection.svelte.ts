@@ -127,9 +127,24 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 
 	/**
 	 * Sorts the collection using the comparator if one is defined.
-	 * Called automatically when items are added to the collection.
+	 *
+	 * This method is called automatically when items are added to the collection via `add()` or `reset()`.
+	 * You can also call it manually to re-sort the collection after modifying model attributes.
+	 *
+	 * The sorting behavior depends on the type of comparator defined:
+	 *
+	 * - **String attribute**: Sorts by the specified model attribute in ascending order
+	 * - **sortBy function** (1 argument): Sorts by the return value of the function in ascending order
+	 * - **sort function** (2 arguments): Uses a custom comparator that returns -1, 0, or 1
+	 *
+	 * If no comparator is defined or the comparator returns undefined, no sorting is performed.
+	 *
+	 * @example
+	 * // Manual sorting after updating a model
+	 * user.set('priority', 5);
+	 * collection.sort();
 	 */
-	private sort(): void {
+	sort(): void {
 		if (!this.comparator) {
 			return;
 		}
