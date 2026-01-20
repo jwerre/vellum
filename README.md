@@ -1,6 +1,6 @@
 # Vellum
 
-Vellum is a lightweight, structural state management library for Svelte 5. Vellum provides a robust Model and Collection base powered by Svelte Runes. It bridges the gap between raw objects and complex state logic, offering a typed, class-based approach to managing data-heavy applications.
+Vellum is a lightweight, structural state management library for Svelte 5. Vellum provides a robust Model and Collection base that is inspired by Backbone.js but powered by Svelte Runes. It bridges the gap between raw objects and complex state logic, offering a typed, class-based approach to managing data-heavy applications.
 
 ## Features
 
@@ -61,9 +61,7 @@ interface BookSchema {
 
 export class Book extends Model<BookSchema> {
 
-	endpoint() {
-		return `/v1/books`;
-	}
+	endpoint = `/v1/books`;
 
 	defaults() {
 		return {
@@ -108,10 +106,7 @@ import { Book } from './Book.svelte.js';
 
 export class Books extends Collection<Book, BookSchema> {
 	model = Book;
-
-	endpoint() {
-		return `/v1/books`;
-	}
+	endpoint = `/v1/books`;
 
 	// Derived state for the entire collection
 	classicCount = $derived(this.items.filter((u) => u.isClassic()).length);
@@ -124,40 +119,20 @@ Vellum works seamlessly with Svelte 5 components.
 
 ```svelte
 <script lang="ts">
-	import { Books } from './Books';
+	import { Book } from './Book.svelte.js';
+	import { Books } from './Books.svelte.js';
 
-	const books = new Books([
-		{
-			id: 1,
-			title: 'The Great Gatsby',
-			author: 'F. Scott Fitzgerald',
-			year: 1925,
-			genre: 'literature'
-		},
-		{
-			id: 2,
-			title: 'To Kill a Mockingbird',
-			author: 'Harper Lee',
-			year: 1960,
-			genre: 'literature'
-		},
-		{
-			id: 3,
-			title: 'The Pillars of the Earth',
-			author: 'Ken Follett',
-			year: 1989,
-			genre: 'literature'
-		}
-	]);
+	const books = new Books();
+	await books.fetch();
 
-	function addBook() {
-		books.add({
-			title: 'Moby Dick',
-			author: 'Herman Melville',
-			year: 1851,
-			genre: 'Adventure',
-			summary: 'The obsessive quest of Captain Ahab to seek revenge on the white whale.'
-		});
+	async function onSubmitBook(e: Event) {
+		e.preventDefault();
+		const form = e.target as HTMLFormElement;
+		const formData = new FormData(form);
+		const data = Object.fromEntries(formData) as BookSchema;
+		const book = new Book(data);
+		await book.save();
+		books.add(book);
 	}
 </script>
 
@@ -170,8 +145,18 @@ Vellum works seamlessly with Svelte 5 components.
 		{/if}
 	{/each}
 </ul>
-
-<button onclick={addBook}>Add Moby Dick</button>
+<form onsubmit={onSubmitBook}>
+	<div>
+		<label for="title">Title</label>
+		<input type="text" id="title" name="title" />
+	</div>
+	<div>
+		<label for="author">Author</label>
+		<input type="text" id="author" name="author" />
+	</div>
+	...
+	<button type="submit">+ Add book</button>
+</form>
 ```
 
 ### Working example
@@ -199,60 +184,72 @@ There is a working example of Vellum in the `routes` directory. To run it, clone
   - [idAttribute](#idattribute)
     - [Examples](#examples-2)
   - [validationError](#validationerror)
+  - [changed](#changed)
+  - [previous](#previous)
   - [defaults](#defaults)
     - [Examples](#examples-3)
-  - [get](#get)
+  - [hasChanged](#haschanged)
     - [Parameters](#parameters-2)
     - [Examples](#examples-4)
-  - [has](#has)
+  - [get](#get)
     - [Parameters](#parameters-3)
     - [Examples](#examples-5)
-  - [unset](#unset)
+  - [has](#has)
     - [Parameters](#parameters-4)
     - [Examples](#examples-6)
-  - [clear](#clear)
-    - [Examples](#examples-7)
-  - [escape](#escape)
+  - [unset](#unset)
     - [Parameters](#parameters-5)
+    - [Examples](#examples-7)
+  - [clear](#clear)
     - [Examples](#examples-8)
-  - [isNew](#isnew)
-  - [isValid](#isvalid)
+  - [escape](#escape)
     - [Parameters](#parameters-6)
     - [Examples](#examples-9)
-  - [validate](#validate)
+  - [isNew](#isnew)
+  - [isValid](#isvalid)
     - [Parameters](#parameters-7)
     - [Examples](#examples-10)
-  - [sync](#sync)
+  - [validate](#validate)
     - [Parameters](#parameters-8)
     - [Examples](#examples-11)
-  - [fetch](#fetch)
-    - [Examples](#examples-12)
-  - [save](#save)
+  - [clone](#clone)
     - [Parameters](#parameters-9)
+    - [Examples](#examples-12)
+  - [sync](#sync)
+    - [Parameters](#parameters-10)
     - [Examples](#examples-13)
-  - [destroy](#destroy)
+  - [fetch](#fetch)
     - [Examples](#examples-14)
-  - [toJSON](#tojson)
+  - [save](#save)
+    - [Parameters](#parameters-11)
     - [Examples](#examples-15)
+  - [destroy](#destroy)
+    - [Examples](#examples-16)
+  - [toJSON](#tojson)
+    - [Examples](#examples-17)
+- [attributes](#attributes)
 - [validationError](#validationerror-1)
+- [changed](#changed-1)
+- [previous](#previous-1)
 - [Collection](#collection)
-  - [Parameters](#parameters-10)
-  - [Examples](#examples-16)
+  - [Parameters](#parameters-12)
+  - [Examples](#examples-18)
   - [items](#items)
   - [length](#length)
   - [add](#add)
-    - [Parameters](#parameters-11)
-    - [Examples](#examples-17)
-  - [sort](#sort)
-  - [reset](#reset)
-    - [Parameters](#parameters-12)
-    - [Examples](#examples-18)
-  - [find](#find)
     - [Parameters](#parameters-13)
     - [Examples](#examples-19)
-  - [fetch](#fetch-1)
-    - [Parameters](#parameters-14)
+  - [sort](#sort)
     - [Examples](#examples-20)
+  - [reset](#reset)
+    - [Parameters](#parameters-14)
+    - [Examples](#examples-21)
+  - [find](#find)
+    - [Parameters](#parameters-15)
+    - [Examples](#examples-22)
+  - [fetch](#fetch-1)
+    - [Parameters](#parameters-16)
+    - [Examples](#examples-23)
 
 ### vellumConfig
 
@@ -329,9 +326,8 @@ interface UserAttributes {
 }
 
 class User extends Model<UserAttributes> {
-  endpoint() {
-    return '/users';
-  }
+  endpoint = '/users';
+
   defaults() {
     return { name: '', createdAt: new Date() };
   }
@@ -365,9 +361,7 @@ const user = new User({ id: 1, name: 'John' });
 // Custom ID attribute can be specified in constructor options
 class User extends Model<UserSchema> {
 	idAttribute = '_id
-	endpoint(): string {
-		return '/users';
-	}
+	endpoint = '/users';
 }
 const user = new User({ _id: '507f1f77bcf86cd799439011', name: 'John' });
 ```
@@ -375,6 +369,20 @@ const user = new User({ _id: '507f1f77bcf86cd799439011', name: 'John' });
 #### validationError
 
 Gets the latest validation error.
+
+#### changed
+
+Gets the hash of attributes that have changed since the last set call.
+This is a readonly accessor - the changed object cannot be modified directly.
+
+Returns **Partial\<T>** An object containing all attributes that have changed
+
+#### previous
+
+Gets the hash of previous attribute values before they were changed.
+This is a readonly accessor - the previous object cannot be modified directly.
+
+Returns **Partial\<T>** An object containing the previous values of changed attributes
 
 #### defaults
 
@@ -409,6 +417,37 @@ const user = new User({ name: 'John' });
 ```
 
 Returns **Partial\<T>** A partial object containing default attribute values
+
+#### hasChanged
+
+Determines if attributes have changed since the last set call.
+
+This method checks whether any attributes were modified in the most recent
+set operation. When called without arguments, it returns true if any attributes
+have changed. When called with a specific attribute key, it returns true only
+if that particular attribute was changed.
+
+##### Parameters
+
+- `attr` &#x20;
+
+##### Examples
+
+```javascript
+// Check if any attributes changed
+const user = new User({ name: 'John', email: 'john@example.com' });
+user.set('name', 'Jane');
+user.hasChanged(); // Returns true
+```
+
+```javascript
+// Check if a specific attribute changed
+user.set('name', 'Jane');
+user.hasChanged('name'); // Returns true
+user.hasChanged('email'); // Returns false
+```
+
+Returns **[boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean)** True if attributes have changed, false otherwise
 
 #### get
 
@@ -638,19 +677,62 @@ validate(attributes: Partial<UserAttributes>) {
 
 Returns **any** Returns undefined if valid, or an error (string/object) if invalid
 
+#### clone
+
+Creates a new instance of the model with identical attributes.
+
+This method returns a new model instance that is a clone of the current model,
+with all attributes copied to the new instance. The clone is a separate object
+with its own state, so modifications to the clone will not affect the original
+model and vice versa. By default, the ID is removed so the cloned instance is
+considered "new" (isNew() returns true).
+
+##### Parameters
+
+- `options` **CloneOptions?** Configuration options for cloning
+  - `options.keepId` **[boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean)** If true, preserves the ID in the clone (optional, default `false`)
+  - `options.deep` **[boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean)** If true, performs a deep clone of nested objects/arrays (optional, default `false`)
+
+##### Examples
+
+```javascript
+// Clone a user model (default - no ID)
+const user = new User({ id: 1, name: 'John', email: 'john@example.com' });
+const userCopy = user.clone();
+console.log(userCopy.isNew()); // true
+console.log(userCopy.get('id')); // undefined
+```
+
+```javascript
+// Clone with ID preserved
+const userCopy = user.clone({ keepId: true });
+console.log(userCopy.isNew()); // false
+console.log(userCopy.get('id')); // 1
+```
+
+```javascript
+// Deep clone for nested objects
+const user = new User({ id: 1, name: 'John', settings: { theme: 'dark' } });
+const userCopy = user.clone({ deep: true });
+userCopy.get('settings').theme = 'light';
+console.log(user.get('settings').theme); // 'dark' (unchanged)
+```
+
+Returns **this** A new instance of the same model class with cloned attributes
+
 #### sync
 
 Performs HTTP synchronization with the server for CRUD operations.
 
 This method handles all HTTP communication between the model and the server,
 automatically constructing the appropriate URL based on the model's ID and
-endpoint(). It supports all standard REST operations and provides type-safe
+endpoint. It supports all standard REST operations and provides type-safe
 response handling.
 
 The URL construction follows REST conventions:
 
-- For new models (no ID): uses collection endpoint `${baseUrl}${endpoint()}`
-- For existing models (with ID): uses resource endpoint `${baseUrl}${endpoint()}/${id}`
+- For new models (no ID): uses collection endpoint `${baseUrl}${endpoint}`
+- For existing models (with ID): uses resource endpoint `${baseUrl}${endpoint}/${id}`
 
 ##### Parameters
 
@@ -759,7 +841,7 @@ on the server). If the model is new and has no ID, the method will return withou
 performing any operation.
 
 The DELETE request is sent to the model's specific resource endpoint using the
-pattern `${baseUrl}${endpoint()}/${id}`. After successful deletion, the model
+pattern `${baseUrl}${endpoint}/${id}`. After successful deletion, the model
 instance remains in memory but the corresponding server resource is removed.
 
 ##### Examples
@@ -805,10 +887,34 @@ const jsonString = JSON.stringify(user.toJSON());
 
 Returns **T** A plain object containing all of the model's attributes
 
+### attributes
+
+Internal reactive storage for all model attributes.
+
+This private field uses Svelte's $state rune to create a reactive object that
+holds all the model's attribute data. When attributes are modified, this reactivity
+ensures that any Svelte components using the model will automatically re-render
+to reflect the changes.
+
+The attributes are initialized as an empty object cast to type T, and are populated
+during construction by merging default values with provided data. All attribute
+access and modification should go through the public API methods (get, set, has, etc.)
+rather than directly accessing this field.
+
 ### validationError
 
 Validation error property that gets set when validation fails.
 This property contains the error returned by the validate method.
+
+### changed
+
+Internal hash containing all attributes that have changed since the last set call.
+This property tracks which attributes have been modified and their new values.
+
+### previous
+
+Internal hash containing the previous values of attributes before they were changed.
+This property stores the original values of attributes from before the last set call.
 
 ### Collection
 
@@ -827,7 +933,7 @@ system for automatic UI updates.
 ```javascript
 class UserCollection extends Collection<UserModel, User> {
   model = UserModel;
-  endpoint = () => '/api/users';
+  endpoint = '/api/users';
 }
 
 const users = new UserCollection();
@@ -867,7 +973,25 @@ Returns **any** The model instance that was added to the collection
 #### sort
 
 Sorts the collection using the comparator if one is defined.
-Called automatically when items are added to the collection.
+
+This method is called automatically when items are added to the collection via `add()` or `reset()`.
+You can also call it manually to re-sort the collection after modifying model attributes.
+
+The sorting behavior depends on the type of comparator defined:
+
+- **String attribute**: Sorts by the specified model attribute in ascending order
+- **sortBy function** (1 argument): Sorts by the return value of the function in ascending order
+- **sort function** (2 arguments): Uses a custom comparator that returns -1, 0, or 1
+
+If no comparator is defined or the comparator returns undefined, no sorting is performed.
+
+##### Examples
+
+```javascript
+// Manual sorting after updating a model
+user.set('priority', 5);
+collection.sort();
+```
 
 #### reset
 

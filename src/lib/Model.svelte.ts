@@ -48,9 +48,8 @@ export interface CloneOptions {
  * }
  *
  * class User extends Model<UserAttributes> {
- *   endpoint() {
- *     return '/users';
- *   }
+ *   endpoint = '/users';
+
  *   defaults() {
  *     return { name: '', createdAt: new Date() };
  *   }
@@ -76,9 +75,6 @@ export abstract class Model<T extends object> {
 	 * during construction by merging default values with provided data. All attribute
 	 * access and modification should go through the public API methods (get, set, has, etc.)
 	 * rather than directly accessing this field.
-	 *
-	 * @private
-	 * @type {T}
 	 */
 	#attributes = $state<T>({} as T);
 
@@ -92,31 +88,29 @@ export abstract class Model<T extends object> {
 	 * Internal hash containing all attributes that have changed since the last set call.
 	 * This property tracks which attributes have been modified and their new values.
 	 */
-	#changed: Partial<T> = {};
+	#changed: Partial<T> = $state({});
 
 	/**
 	 * Internal hash containing the previous values of attributes before they were changed.
 	 * This property stores the original values of attributes from before the last set call.
 	 */
-	#previous: Partial<T> = {};
+	#previous: Partial<T> = $state({});
 
 	/**
 	 * Abstract method that must be implemented by subclasses to define the base URL path
 	 * for API endpoints related to this model.
 	 *
 	 * This method returns the root URL segment that will be appended to the base API URL
-	 * to form complete endpoints for CRUD operations. For example, if endpoint() returns
+	 * to form complete endpoints for CRUD operations. For example, if endpoint is set to
 	 * '/users', the full URL for API calls would be `${baseUrl}/users` for collections
 	 * or `${baseUrl}/users/{id}` for individual resources.
 	 *
 	 * @returns {string} The root URL path for this model's API endpoints (e.g., '/users', '/posts')
 	 * @example
 	 * // In a User model subclass:
-	 * endpoint(): string {
-	 *   return '/users';
-	 * }
+	 * endpoint = '/users';
 	 */
-	protected abstract endpoint(): string;
+	protected abstract endpoint: string;
 
 	/**
 	 * The name of the attribute that serves as the unique identifier for this model instance.
@@ -136,9 +130,7 @@ export abstract class Model<T extends object> {
 	 * // Custom ID attribute can be specified in constructor options
 	 *	class User extends Model<UserSchema> {
 	 *		idAttribute = '_id
-	 *		endpoint(): string {
-	 *			return '/users';
-	 *		}
+	 *		endpoint = '/users';
 	 *	}
 	 * const user = new User({ _id: '507f1f77bcf86cd799439011', name: 'John' });
 	 */
@@ -182,36 +174,6 @@ export abstract class Model<T extends object> {
 	}
 
 	/**
-	 * Determines if attributes have changed since the last set call.
-	 *
-	 * This method checks whether any attributes were modified in the most recent
-	 * set operation. When called without arguments, it returns true if any attributes
-	 * have changed. When called with a specific attribute key, it returns true only
-	 * if that particular attribute was changed.
-	 *
-	 * @param {keyof T} [attr] - Optional attribute key to check for changes
-	 * @returns {boolean} True if attributes have changed, false otherwise
-	 *
-	 * @example
-	 * // Check if any attributes changed
-	 * const user = new User({ name: 'John', email: 'john@example.com' });
-	 * user.set('name', 'Jane');
-	 * user.hasChanged(); // Returns true
-	 *
-	 * @example
-	 * // Check if a specific attribute changed
-	 * user.set('name', 'Jane');
-	 * user.hasChanged('name'); // Returns true
-	 * user.hasChanged('email'); // Returns false
-	 */
-	hasChanged(attr?: keyof T): boolean {
-		if (attr !== undefined) {
-			return attr in this.#changed;
-		}
-		return Object.keys(this.#changed).length > 0;
-	}
-
-	/**
 	 * Provides default attribute values for new model instances.
 	 *
 	 * This method is called during model construction to establish initial attribute
@@ -243,6 +205,36 @@ export abstract class Model<T extends object> {
 	 */
 	protected defaults(): Partial<T> {
 		return {};
+	}
+
+	/**
+	 * Determines if attributes have changed since the last set call.
+	 *
+	 * This method checks whether any attributes were modified in the most recent
+	 * set operation. When called without arguments, it returns true if any attributes
+	 * have changed. When called with a specific attribute key, it returns true only
+	 * if that particular attribute was changed.
+	 *
+	 * @param {keyof T} [attr] - Optional attribute key to check for changes
+	 * @returns {boolean} True if attributes have changed, false otherwise
+	 *
+	 * @example
+	 * // Check if any attributes changed
+	 * const user = new User({ name: 'John', email: 'john@example.com' });
+	 * user.set('name', 'Jane');
+	 * user.hasChanged(); // Returns true
+	 *
+	 * @example
+	 * // Check if a specific attribute changed
+	 * user.set('name', 'Jane');
+	 * user.hasChanged('name'); // Returns true
+	 * user.hasChanged('email'); // Returns false
+	 */
+	hasChanged(attr?: keyof T): boolean {
+		if (attr !== undefined) {
+			return attr in this.#changed;
+		}
+		return Object.keys(this.#changed).length > 0;
 	}
 
 	/**
@@ -602,12 +594,12 @@ export abstract class Model<T extends object> {
 	 *
 	 * This method handles all HTTP communication between the model and the server,
 	 * automatically constructing the appropriate URL based on the model's ID and
-	 * endpoint(). It supports all standard REST operations and provides type-safe
+	 * endpoint. It supports all standard REST operations and provides type-safe
 	 * response handling.
 	 *
 	 * The URL construction follows REST conventions:
-	 * - For new models (no ID): uses collection endpoint `${baseUrl}${endpoint()}`
-	 * - For existing models (with ID): uses resource endpoint `${baseUrl}${endpoint()}/${id}`
+	 * - For new models (no ID): uses collection endpoint `${baseUrl}${endpoint}`
+	 * - For existing models (with ID): uses resource endpoint `${baseUrl}${endpoint}/${id}`
 	 *
 	 * @template R - The expected response type, defaults to T (the model's attribute type)
 	 * @param {('GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE')} [method='GET'] - The HTTP method to use (defaults to 'GET')
@@ -634,7 +626,7 @@ export abstract class Model<T extends object> {
 		options: SyncOptions = {}
 	): Promise<R | null> {
 		const id = this.#getId();
-		const endpoint = options?.endpoint?.length ? options.endpoint : this.endpoint();
+		const endpoint = options?.endpoint?.length ? options.endpoint : this.endpoint;
 		const fullUrl = `${vellumConfig.origin}${endpoint}`;
 		const url = id ? `${fullUrl}/${id}` : fullUrl;
 		const fetchOpts = {
@@ -759,7 +751,7 @@ export abstract class Model<T extends object> {
 	 * performing any operation.
 	 *
 	 * The DELETE request is sent to the model's specific resource endpoint using the
-	 * pattern `${baseUrl}${endpoint()}/${id}`. After successful deletion, the model
+	 * pattern `${baseUrl}${endpoint}/${id}`. After successful deletion, the model
 	 * instance remains in memory but the corresponding server resource is removed.
 	 *
 	 * @returns {Promise<void>} A promise that resolves when the delete operation completes

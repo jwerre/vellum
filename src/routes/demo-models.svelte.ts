@@ -33,9 +33,7 @@ const LAST_NAMES = [
 ];
 
 export class UserModel extends Model<User> {
-	endpoint() {
-		return '/api/users';
-	}
+	endpoint = '/api/users';
 
 	validate(attr: Partial<User>) {
 		if (!attr.name?.length) {
@@ -57,9 +55,7 @@ export class UserCollection extends Collection<UserModel, User> {
 		return UserModel;
 	}
 
-	endpoint() {
-		return '/api/users';
-	}
+	endpoint = '/api/users';
 
 	async updateUser(id: User['id'], data: Pick<Partial<User>, 'name' | 'email'>) {
 		const user = this.items.find((user) => user.get('id') === id);

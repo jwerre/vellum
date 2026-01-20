@@ -9,9 +9,7 @@ interface TestSchema {
 }
 
 class TestModel extends Model<TestSchema> {
-	endpoint(): string {
-		return '/test';
-	}
+	endpoint = '/test';
 }
 
 describe('Vellum Model', () => {
@@ -91,9 +89,7 @@ describe('Vellum Model', () => {
 		it('should apply an alternative id attribute', () => {
 			class User extends Model<{ uniqueid?: string }> {
 				idAttribute = 'uniqueid';
-				endpoint() {
-					return '/users';
-				}
+				endpoint = '/users';
 			}
 
 			const user = new User();
@@ -111,12 +107,9 @@ describe('Vellum Model', () => {
 			};
 
 			class User extends Model<TestSchema> {
+				endpoint = '/users';
 				defaults() {
 					return values;
-				}
-
-				endpoint() {
-					return '/users';
 				}
 			}
 
@@ -211,9 +204,7 @@ describe('Vellum Model', () => {
 
 		it('should handle validation failure without updating changed/previous', () => {
 			class User extends Model<TestSchema> {
-				endpoint() {
-					return '/users';
-				}
+				endpoint = '/users';
 
 				validate(attr: Partial<TestSchema>) {
 					if (attr.age && attr.age < 18) {
@@ -277,9 +268,7 @@ describe('Vellum Model', () => {
 
 	describe('Validation', () => {
 		class User extends Model<TestSchema> {
-			endpoint() {
-				return '/users';
-			}
+			endpoint = '/users';
 
 			validate(attr: Partial<TestSchema>) {
 				if (attr.age && attr.age < 18) {
@@ -401,9 +390,7 @@ describe('Vellum Model', () => {
 
 		it('should work with custom model subclasses', () => {
 			class User extends Model<TestSchema> {
-				endpoint() {
-					return '/users';
-				}
+				endpoint = '/users';
 
 				defaults() {
 					return { name: 'Default User' };
@@ -430,9 +417,7 @@ describe('Vellum Model', () => {
 		it('should work with custom ID attributes', () => {
 			class User extends Model<{ uniqueid?: string; name: string }> {
 				idAttribute = 'uniqueid';
-				endpoint() {
-					return '/users';
-				}
+				endpoint = '/users';
 			}
 
 			const original = new User({ uniqueid: '123', name: 'John' });

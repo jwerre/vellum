@@ -115,7 +115,7 @@
 				<td>{new Date(user.get('created')).toLocaleString('en-US')}</td>
 				<td>
 					<nav>
-						<button onclick={onUserDetails}>Details</button>
+						<button onclick={onUserDetails}>Edit</button>
 						<button class="delete" onclick={onUserDelete}>Delete</button>
 					</nav>
 				</td>

@@ -2,6 +2,10 @@ import { SvelteURLSearchParams } from 'svelte/reactivity';
 import { Model } from './Model.svelte';
 import { type VellumConfig, vellumConfig } from './config.svelte';
 
+export interface CollectionOptions extends Partial<VellumConfig> {
+	model?: unknown;
+}
+
 export interface FetchOptions extends Partial<VellumConfig> {
 	endpoint?: string;
 	search?: Record<string, string | number | boolean>;
@@ -20,7 +24,7 @@ export interface FetchOptions extends Partial<VellumConfig> {
  * @example
  * class UserCollection extends Collection<UserModel, User> {
  *   model = UserModel;
- *   endpoint = () => '/api/users';
+ *   endpoint = '/api/users';
  * }
  *
  * const users = new UserCollection();
@@ -34,8 +38,16 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	/** The Model class constructor used to create new instances */
 	abstract model: { new (data: Partial<T>): M };
 
-	/** Returns the API endpoint URL for this collection */
-	abstract endpoint(): string;
+	/**
+	 * The base URL path for API endpoints related to this model.
+	 *
+	 * Define this as a property in your subclass.
+	 * @example
+	 * class User extends Collection<UserSchema> {
+	 * endpoint = '/users';
+	 * }
+	 */
+	protected abstract endpoint: string;
 
 	/**
 	 * Optional comparator for sorting the collection.
@@ -88,17 +100,24 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	 * const collection = new UserCollection();
 	 *
 	 * // Create collection with initial data
-	 * const collection = new UserCollection([
+	 * const collection = new UserCollection();
+	 * collection.reset([
 	 *   { id: 1, name: 'John' },
 	 *   { id: 2, name: 'Jane' }
 	 * ]);
 	 */
 	constructor(models: T[] = []) {
 		if (models.length > 0) {
-			this.reset(models);
+			try {
+				this.reset(models);
+			} catch (error) {
+				console.error('Failed to initialize collection with data:', error);
+				console.error(
+					'Initializing the collection with data requires model to be defined as getter since model is not available in constructor.'
+				);
+			}
 		}
 	}
-
 	/** Gets the number of items in the collection */
 	get length(): number {
 		return this.items.length;
@@ -254,7 +273,7 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 			query = `?${params.toString()}`;
 		}
 
-		const endpoint = options?.endpoint?.length ? options.endpoint : this.endpoint();
+		const endpoint = options?.endpoint?.length ? options.endpoint : this.endpoint;
 		const fullUrl = `${vellumConfig.origin}${endpoint}${query}`;
 		const response = await fetch(fullUrl, {
 			headers: { ...vellumConfig.headers }
