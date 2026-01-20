@@ -14,6 +14,11 @@ export interface ValidationOptions {
 	[key: string]: unknown;
 }
 
+export interface CloneOptions {
+	keepId?: boolean;
+	deep?: boolean;
+}
+
 /**
  * Abstract base class for creating model instances that interact with RESTful APIs.
  *
@@ -59,6 +64,22 @@ export interface ValidationOptions {
  * await user.destroy(); // Deletes user
  */
 export abstract class Model<T extends object> {
+	/**
+	 * Internal reactive storage for all model attributes.
+	 *
+	 * This private field uses Svelte's $state rune to create a reactive object that
+	 * holds all the model's attribute data. When attributes are modified, this reactivity
+	 * ensures that any Svelte components using the model will automatically re-render
+	 * to reflect the changes.
+	 *
+	 * The attributes are initialized as an empty object cast to type T, and are populated
+	 * during construction by merging default values with provided data. All attribute
+	 * access and modification should go through the public API methods (get, set, has, etc.)
+	 * rather than directly accessing this field.
+	 *
+	 * @private
+	 * @type {T}
+	 */
 	#attributes = $state<T>({} as T);
 
 	/**
@@ -523,6 +544,57 @@ export abstract class Model<T extends object> {
 	validate(attributes: Partial<T>, options?: ValidationOptions): string | undefined {
 		// Default implementation - no validation
 		return undefined;
+	}
+
+	/**
+	 * Creates a new instance of the model with identical attributes.
+	 *
+	 * This method returns a new model instance that is a clone of the current model,
+	 * with all attributes copied to the new instance. The clone is a separate object
+	 * with its own state, so modifications to the clone will not affect the original
+	 * model and vice versa. By default, the ID is removed so the cloned instance is
+	 * considered "new" (isNew() returns true).
+	 *
+	 * @param {CloneOptions} [options] - Configuration options for cloning
+	 * @param {boolean} [options.keepId=false] - If true, preserves the ID in the clone
+	 * @param {boolean} [options.deep=false] - If true, performs a deep clone of nested objects/arrays
+	 * @returns {this} A new instance of the same model class with cloned attributes
+	 *
+	 * @example
+	 * // Clone a user model (default - no ID)
+	 * const user = new User({ id: 1, name: 'John', email: 'john@example.com' });
+	 * const userCopy = user.clone();
+	 * console.log(userCopy.isNew()); // true
+	 * console.log(userCopy.get('id')); // undefined
+	 *
+	 * @example
+	 * // Clone with ID preserved
+	 * const userCopy = user.clone({ keepId: true });
+	 * console.log(userCopy.isNew()); // false
+	 * console.log(userCopy.get('id')); // 1
+	 *
+	 * @example
+	 * // Deep clone for nested objects
+	 * const user = new User({ id: 1, name: 'John', settings: { theme: 'dark' } });
+	 * const userCopy = user.clone({ deep: true });
+	 * userCopy.get('settings').theme = 'light';
+	 * console.log(user.get('settings').theme); // 'dark' (unchanged)
+	 */
+	clone(options?: CloneOptions): this {
+		const Constructor = this.constructor as new (data: Partial<T>) => this;
+		let attrs = this.toJSON();
+
+		// Remove ID unless keepId is true
+		if (!options?.keepId) {
+			delete attrs[this.idAttribute as keyof T];
+		}
+
+		// Perform deep clone if requested
+		if (options?.deep) {
+			attrs = structuredClone(attrs);
+		}
+
+		return new Constructor(attrs);
 	}
 
 	/**

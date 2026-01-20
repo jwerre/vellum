@@ -351,6 +351,101 @@ describe('Vellum Model', () => {
 		});
 	});
 
+	describe('Clone', () => {
+		it('should create a new instance with identical attributes except ID', () => {
+			const original = new TestModel({ name: 'John', email: 'john@example.com', age: 25 });
+			const cloned = original.clone();
+
+			expect(cloned).toBeInstanceOf(TestModel);
+			expect(cloned).not.toBe(original);
+			expect(cloned.get('name')).toBe('John');
+			expect(cloned.get('email')).toBe('john@example.com');
+			expect(cloned.get('age')).toBe(25);
+		});
+
+		it('should create independent instances', () => {
+			const original = new TestModel({ name: 'John', email: 'john@example.com' });
+			const cloned = original.clone();
+
+			// Modify the clone
+			cloned.set('name', 'Jane');
+
+			// Original should be unchanged
+			expect(original.get('name')).toBe('John');
+			expect(cloned.get('name')).toBe('Jane');
+		});
+
+		it('should remove ID from cloned instance', () => {
+			const original = new TestModel({ _id: '123', name: 'John', email: 'john@example.com' });
+			const cloned = original.clone();
+
+			expect(original.get('_id')).toBe('123');
+			expect(cloned.get('_id')).toBeUndefined();
+			expect(cloned.get('name')).toBe('John');
+			expect(cloned.get('email')).toBe('john@example.com');
+			expect(original.isNew()).toBe(false);
+			expect(cloned.isNew()).toBe(true);
+		});
+
+		it('should not share changed/previous state', () => {
+			const original = new TestModel({ name: 'John', email: 'john@example.com' });
+			original.set('name', 'Jane');
+
+			const cloned = original.clone();
+
+			// Clone should have fresh state with no changes tracked
+			expect(cloned.hasChanged()).toBe(false);
+			expect(cloned.changed).toEqual({});
+			expect(cloned.previous).toEqual({});
+		});
+
+		it('should work with custom model subclasses', () => {
+			class User extends Model<TestSchema> {
+				endpoint() {
+					return '/users';
+				}
+
+				defaults() {
+					return { name: 'Default User' };
+				}
+			}
+
+			const original = new User({ name: 'John', email: 'john@example.com' });
+			const cloned = original.clone();
+
+			expect(cloned).toBeInstanceOf(User);
+			expect(cloned.get('name')).toBe('John');
+			expect(cloned.get('email')).toBe('john@example.com');
+		});
+
+		it('should clone empty model', () => {
+			const original = new TestModel();
+			const cloned = original.clone();
+
+			expect(cloned).toBeInstanceOf(TestModel);
+			expect(cloned).not.toBe(original);
+			expect(cloned.isNew()).toBe(true);
+		});
+
+		it('should work with custom ID attributes', () => {
+			class User extends Model<{ uniqueid?: string; name: string }> {
+				idAttribute = 'uniqueid';
+				endpoint() {
+					return '/users';
+				}
+			}
+
+			const original = new User({ uniqueid: '123', name: 'John' });
+			const cloned = original.clone();
+
+			expect(original.get('uniqueid')).toBe('123');
+			expect(cloned.get('uniqueid')).toBeUndefined();
+			expect(cloned.get('name')).toBe('John');
+			expect(original.isNew()).toBe(false);
+			expect(cloned.isNew()).toBe(true);
+		});
+	});
+
 	describe('Persistence', () => {
 		it('should save a new document', async () => {
 			const mockResponse = { _id: '123', name: 'New Item' };
