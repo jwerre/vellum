@@ -244,6 +244,19 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 	}
 
 	/**
+	 * Parses the raw server response and returns the array of model attributes to be added to the collection.
+	 *
+	 * The default implementation is a no-op, simply passing through the JSON response.
+	 * Override this if you need to work with a preexisting API, or better namespace your responses.
+	 *
+	 * @param response - The raw response object from the server
+	 * @returns The array of model attributes to be added to the collection
+	 */
+	parse(response: unknown): T[] {
+		return response as T[];
+	}
+
+	/**
 	 * Fetches data from the server and populates the collection.
 	 *
 	 * @param options - Configuration options for the fetch request
@@ -282,8 +295,8 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 		if (!response.ok) {
 			throw new Error(`Vellum Collection Error: ${response.statusText}`);
 		}
-
-		const data = (await response.json()) as T[];
+		const jsonData = (await response.json()) as unknown;
+		const data = this.parse(jsonData);
 		this.reset(data);
 	}
 }

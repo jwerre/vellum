@@ -63,42 +63,6 @@ describe('Vellum Collection', () => {
 			expect(collection.length).toBe(1);
 			expect(collection.items[0].get('name')).toBe('Charlie');
 		});
-
-		it('should fetch data and populate models', async () => {
-			const mockData = [
-				{ id: 10, name: 'James' },
-				{ id: 11, name: 'Lily' }
-			];
-
-			vi.mocked(fetch).mockResolvedValue({
-				ok: true,
-				json: async () => mockData
-			} as Response);
-
-			const collection = new UserCollection();
-			await collection.fetch({ search: { active: true } });
-
-			// Check URL construction
-			expect(vi.mocked(fetch)).toHaveBeenCalledWith(
-				'https://api.example.com/users?active=true',
-				expect.any(Object)
-			);
-
-			// Check data transformation
-			expect(collection.length).toBe(2);
-			expect(collection.items[1].get('name')).toBe('Lily');
-			expect(collection.items[1]).toBeInstanceOf(UserModel);
-		});
-
-		it('should propagate fetch errors', async () => {
-			vi.mocked(fetch).mockResolvedValue({
-				ok: false,
-				statusText: 'Unauthorized'
-			} as Response);
-
-			const collection = new UserCollection();
-			await expect(collection.fetch()).rejects.toThrow('Vellum Collection Error: Unauthorized');
-		});
 	});
 
 	describe('Comparator and Sorting', () => {
@@ -271,6 +235,71 @@ describe('Vellum Collection', () => {
 			expect(collection.items[1].get('name')).toBe('Bob');
 			expect(collection.items[2].get('name')).toBe('Alice');
 			expect(collection.items[3].get('name')).toBe('Charlie');
+		});
+	});
+
+	describe('Fetch and Error Handling', () => {
+		it('should fetch data and populate models', async () => {
+			const mockData = [
+				{ id: 10, name: 'James' },
+				{ id: 11, name: 'Lily' }
+			];
+
+			vi.mocked(fetch).mockResolvedValue({
+				ok: true,
+				json: async () => mockData
+			} as Response);
+
+			const collection = new UserCollection();
+			await collection.fetch({ search: { active: true } });
+
+			// Check URL construction
+			expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+				'https://api.example.com/users?active=true',
+				expect.any(Object)
+			);
+
+			// Check data transformation
+			expect(collection.length).toBe(2);
+			expect(collection.items[1].get('name')).toBe('Lily');
+			expect(collection.items[1]).toBeInstanceOf(UserModel);
+		});
+
+		it('should propagate fetch errors', async () => {
+			vi.mocked(fetch).mockResolvedValue({
+				ok: false,
+				statusText: 'Unauthorized'
+			} as Response);
+
+			const collection = new UserCollection();
+			await expect(collection.fetch()).rejects.toThrow('Vellum Collection Error: Unauthorized');
+		});
+
+		it('should use custom parse method to transform response', async () => {
+			class ParsedCollection extends UserCollection {
+				parse(response: unknown) {
+					return (response as { data: UserSchema[] }).data;
+				}
+			}
+
+			const mockResponse = {
+				data: [
+					{ id: 1, name: 'Alice' },
+					{ id: 2, name: 'Bob' }
+				]
+			};
+
+			vi.mocked(fetch).mockResolvedValue({
+				ok: true,
+				json: async () => mockResponse
+			} as Response);
+
+			const collection = new ParsedCollection();
+			await collection.fetch();
+
+			expect(collection.length).toBe(2);
+			expect(collection.items[0].get('name')).toBe('Alice');
+			expect(collection.items[1].get('name')).toBe('Bob');
 		});
 	});
 });
