@@ -1,3 +1,5 @@
+import { request } from './utils.js';
+
 export type VellumRequest = (
 	url: string,
 	options: {
@@ -12,27 +14,6 @@ export interface VellumConfig {
 	headers: Record<string, string>;
 	idAttribute: string;
 	request: VellumRequest;
-}
-
-async function _request(
-	url: string,
-	options: {
-		method?: string;
-		headers?: Record<string, string>;
-		body?: string;
-	}
-): Promise<unknown> {
-	const response = await fetch(url, options);
-
-	if (!response.ok) {
-		throw new Error(`Vellum Collection Error: ${response.statusText}`);
-	}
-
-	if (response.status === 204) {
-		return null;
-	}
-
-	return response.json();
 }
 
 /**
@@ -50,7 +31,7 @@ export const vellumConfig = $state<VellumConfig>({
 		'Content-Type': 'application/json'
 	},
 	idAttribute: 'id',
-	request: _request
+	request
 });
 
 /**
