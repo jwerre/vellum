@@ -215,13 +215,15 @@ There is a working example of Vellum in the `routes` directory. To run it, clone
   - [clone](#clone)
     - [Parameters](#parameters-9)
     - [Examples](#examples-12)
-  - [sync](#sync)
+  - [parse](#parse)
     - [Parameters](#parameters-10)
+  - [sync](#sync)
+    - [Parameters](#parameters-11)
     - [Examples](#examples-13)
   - [fetch](#fetch)
     - [Examples](#examples-14)
   - [save](#save)
-    - [Parameters](#parameters-11)
+    - [Parameters](#parameters-12)
     - [Examples](#examples-15)
   - [destroy](#destroy)
     - [Examples](#examples-16)
@@ -232,23 +234,25 @@ There is a working example of Vellum in the `routes` directory. To run it, clone
 - [changed](#changed-1)
 - [previous](#previous-1)
 - [Collection](#collection)
-  - [Parameters](#parameters-12)
+  - [Parameters](#parameters-13)
   - [Examples](#examples-18)
   - [items](#items)
   - [length](#length)
   - [add](#add)
-    - [Parameters](#parameters-13)
+    - [Parameters](#parameters-14)
     - [Examples](#examples-19)
   - [sort](#sort)
     - [Examples](#examples-20)
   - [reset](#reset)
-    - [Parameters](#parameters-14)
+    - [Parameters](#parameters-15)
     - [Examples](#examples-21)
   - [find](#find)
-    - [Parameters](#parameters-15)
-    - [Examples](#examples-22)
-  - [fetch](#fetch-1)
     - [Parameters](#parameters-16)
+    - [Examples](#examples-22)
+  - [parse](#parse-1)
+    - [Parameters](#parameters-17)
+  - [fetch](#fetch-1)
+    - [Parameters](#parameters-18)
     - [Examples](#examples-23)
 
 ### vellumConfig
@@ -270,6 +274,7 @@ with existing headers rather than replaced entirely.
   - `config.origin` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)?** New origin URL to set
   - `config.headers` **Record<[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String), [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)>?** Headers to merge with existing headers
   - `config.idAttribute` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** The default unique identifier attribute for models (optional, default `"id"`)
+  - `config.request` **[function](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Statements/function)** Vellum leverages the Fetch API via Model::sync and Collection::fetch. To use a different network interface or add custom wrappers, simply provide your own request function implementation. (optional, default `fetch`)
 
 #### Examples
 
@@ -289,6 +294,31 @@ configureVellum({
 configureVellum({
 	origin: 'https://api.vellum.ai',
 	headers: { Authorization: 'Bearer token123' }
+});
+```
+
+```javascript
+// Provide a custom request function
+import { type AxiosRequestConfig }, axios from 'axios';
+
+const customRequest: VellumRequest = async (url: string, options: AxiosRequestConfig) => {
+  const response = await axios({
+    url,
+    ...options,
+    headers: {
+      ...options.headers,
+    }
+  });
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  return response.data;
+};
+
+configureVellum({
+  request: customRequest
 });
 ```
 
@@ -720,6 +750,19 @@ console.log(user.get('settings').theme); // 'dark' (unchanged)
 
 Returns **this** A new instance of the same model class with cloned attributes
 
+#### parse
+
+Parses the raw server response and returns the array of model attributes to be added to the collection.
+
+The default implementation is a no-op, simply passing through the JSON response.
+Override this if you need to work with a preexisting API, or better namespace your responses.
+
+##### Parameters
+
+- `response` The raw response object from the server
+
+Returns **any** The array of model attributes to be added to the collection
+
 #### sync
 
 Performs HTTP synchronization with the server for CRUD operations.
@@ -1031,6 +1074,19 @@ const activeAdmin = collection.find({ role: 'admin', status: 'active' });
 ```
 
 Returns **any** The first matching item, or undefined if no match is found.
+
+#### parse
+
+Parses the raw server response and returns the array of model attributes to be added to the collection.
+
+The default implementation is a no-op, simply passing through the JSON response.
+Override this if you need to work with a preexisting API, or better namespace your responses.
+
+##### Parameters
+
+- `response` The raw response object from the server
+
+Returns **any** The array of model attributes to be added to the collection
 
 #### fetch
 

@@ -288,15 +288,19 @@ export abstract class Collection<M extends Model<T>, T extends object> {
 
 		const endpoint = options?.endpoint?.length ? options.endpoint : this.endpoint;
 		const fullUrl = `${vellumConfig.origin}${endpoint}${query}`;
-		const response = await fetch(fullUrl, {
+
+		const requestFn = options.request ?? vellumConfig.request;
+
+		if (typeof requestFn !== 'function') {
+			throw new Error('Vellum Collection Error: No request function provided');
+		}
+
+		const response = await requestFn(fullUrl, {
 			headers: { ...vellumConfig.headers }
 		});
 
-		if (!response.ok) {
-			throw new Error(`Vellum Collection Error: ${response.statusText}`);
-		}
-		const jsonData = (await response.json()) as unknown;
-		const data = this.parse(jsonData);
+		const data = this.parse(response);
+
 		this.reset(data);
 	}
 }

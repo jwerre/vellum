@@ -1,7 +1,38 @@
+export type VellumRequest = (
+	url: string,
+	options: {
+		method?: string;
+		headers?: Record<string, string>;
+		body?: string;
+	}
+) => Promise<unknown>;
+
 export interface VellumConfig {
 	origin: string;
 	headers: Record<string, string>;
 	idAttribute: string;
+	request: VellumRequest;
+}
+
+async function _request(
+	url: string,
+	options: {
+		method?: string;
+		headers?: Record<string, string>;
+		body?: string;
+	}
+): Promise<unknown> {
+	const response = await fetch(url, options);
+
+	if (!response.ok) {
+		throw new Error(`Vellum Collection Error: ${response.statusText}`);
+	}
+
+	if (response.status === 204) {
+		return null;
+	}
+
+	return response.json();
 }
 
 /**
@@ -11,13 +42,15 @@ export interface VellumConfig {
  * @default origin - Empty string (must be configured before use)
  * @default headers - Contains 'Content-Type': 'application/json'
  * @default idAttribute - The default unique identifier attribute for models
+ * @default request - The request function that uses fetch to make HTTP requests (default: fetch)
  */
 export const vellumConfig = $state<VellumConfig>({
 	origin: '',
 	headers: {
 		'Content-Type': 'application/json'
 	},
-	idAttribute: 'id'
+	idAttribute: 'id',
+	request: _request
 });
 
 /**
@@ -31,6 +64,7 @@ export const vellumConfig = $state<VellumConfig>({
  * @param {string} [config.origin] - New origin URL to set
  * @param {Record<string, string>} [config.headers] - Headers to merge with existing headers
  * @param {string} [config.idAttribute="id"] - The default unique identifier attribute for models
+ * @param {function} [config.request=fetch] - Vellum leverages the Fetch API via Model::sync and Collection::fetch. To use a different network interface or add custom wrappers, simply provide your own request function implementation.
  *
  * @example
  * // Set the API origin
@@ -49,6 +83,30 @@ export const vellumConfig = $state<VellumConfig>({
  *   origin: 'https://api.vellum.ai',
  *   headers: { 'Authorization': 'Bearer token123' }
  * });
+ *
+ * @example
+ * // Provide a custom request function
+ * import { type AxiosRequestConfig }, axios from 'axios';
+ *
+ * const customRequest: VellumRequest = async (url: string, options: AxiosRequestConfig) => {
+ *   const response = await axios({
+ *     url,
+ *     ...options,
+ *     headers: {
+ *       ...options.headers,
+ *     }
+ *   });
+ *
+ *   if (response.status === 204) {
+ *     return null;
+ *   }
+ *
+ *   return response.data;
+ * };
+ *
+ * configureVellum({
+ *   request: customRequest
+ * });
  */
 export const configureVellum = (config: Partial<VellumConfig>) => {
 	if (config.origin?.length) {
@@ -61,5 +119,9 @@ export const configureVellum = (config: Partial<VellumConfig>) => {
 
 	if (config.headers) {
 		vellumConfig.headers = { ...vellumConfig.headers, ...config.headers };
+	}
+
+	if (config.request) {
+		vellumConfig.request = config.request;
 	}
 };

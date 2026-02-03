@@ -590,6 +590,19 @@ export abstract class Model<T extends object> {
 	}
 
 	/**
+	 * Parses the raw server response and returns the array of model attributes to be added to the collection.
+	 *
+	 * The default implementation is a no-op, simply passing through the JSON response.
+	 * Override this if you need to work with a preexisting API, or better namespace your responses.
+	 *
+	 * @param response - The raw response object from the server
+	 * @returns The array of model attributes to be added to the collection
+	 */
+	parse(response: unknown): T {
+		return response as T;
+	}
+
+	/**
 	 * Performs HTTP synchronization with the server for CRUD operations.
 	 *
 	 * This method handles all HTTP communication between the model and the server,
@@ -624,11 +637,11 @@ export abstract class Model<T extends object> {
 		method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'GET',
 		body?: Record<string, unknown> | T,
 		options: SyncOptions = {}
-	): Promise<R | null> {
+	): Promise<R | null | undefined> {
 		const id = this.#getId();
 		const endpoint = options?.endpoint?.length ? options.endpoint : this.endpoint;
-		const fullUrl = `${vellumConfig.origin}${endpoint}`;
-		const url = id ? `${fullUrl}/${id}` : fullUrl;
+		const url = `${vellumConfig.origin}${endpoint}`;
+		const fullUrl = id ? `${url}/${id}` : url;
 		const fetchOpts = {
 			method,
 			headers: {
@@ -638,21 +651,15 @@ export abstract class Model<T extends object> {
 			body: body ? JSON.stringify(body) : undefined
 		};
 
-		// console.log('Model::sync()', url, fetchOpts);
+		const requestFn = options.request ?? vellumConfig.request;
 
-		const response = await fetch(url, fetchOpts);
-
-		if (!response.ok) {
-			throw new Error(`Vellum Sync Error: ${response.statusText}`);
+		if (typeof requestFn !== 'function') {
+			throw new Error('Vellum Collection Error: No request function provided');
 		}
 
-		// Handle 204 No Content safely
-		if (response.status === 204) {
-			return null;
-		}
+		const data = await requestFn(fullUrl, fetchOpts);
 
-		const data = await response.json();
-		return data as R;
+		return data as R | null | undefined;
 	}
 
 	/**
@@ -681,7 +688,8 @@ export abstract class Model<T extends object> {
 	async fetch(): Promise<void> {
 		const data = await this.sync('GET');
 		if (data && typeof data === 'object') {
-			this.set(data as Partial<T>);
+			const parsedData = this.parse(data);
+			this.set(parsedData as Partial<T>);
 		}
 	}
 
@@ -734,6 +742,7 @@ export abstract class Model<T extends object> {
 		const id = this.#getId();
 		const method = id ? 'PUT' : 'POST';
 
+		// console.log('Model::save()', method, this.toJSON(), options);
 		const data = await this.sync(method, this.toJSON(), options);
 		if (data && typeof data === 'object') {
 			this.set(data as Partial<T>, { silent: true });
